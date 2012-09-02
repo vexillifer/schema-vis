@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<sdl>
+   <!--Dimensions-->
+   <dimensions>
+      <dimension name="SBranch">
+         <key name="branchID"/>
+         <column name="branchID" type="int"/>
+         <column name="name" type="nvarchar"/>
+         <column name="type" type="nvarchar"/>
+         <column name="areaID" type="int"/>
+         <column name="cityID" type="int"/>
+         <column name="provID" type="int"/>
+         <column name="regionID" type="int" table = "SRegion" column="regionID"/>
+         <foreign-key name="cityID" table="SCity" column="cityID"/>
+         <foreign-key name="provID" table="SProvince" column="provID"/>
+         <foreign-key name="regionID" table="SRegion" column="regionID"/>
+      </dimension>
+      <dimension name="SCity" >
+         <key name="cityID" />
+         <column name="cityID" type="int"/>
+         <column name="name" type="nvarchar"/>
+         <column name="population" type="int"/>
+         <column name="classification" type="nvarchar"/>
+      </dimension>
+      <dimension name="SRegion">
+         <key name="regionID"/>
+         <column name="regionID" type="int"/>
+         <column name="name" type="nvarchar"/>
+      </dimension>
+      <dimension name="SProvince">
+         <key name="provID"/>
+         <column name="provID" type="int"/>
+         <column name="country" type="nvarchar"/>
+      </dimension>
+      <dimension name="SClient">
+         <key name="clientID"/>
+         <column name="clientID" type="int"/>
+         <column name="clientName" type="nvarchar"/>
+      </dimension>
+   </dimensions>
+   <!--Fact tables-->   
+   <fact-tables>
+      <fact-table name="SSaleEast">
+         <key name="branchID"/>
+         <key name="clientID"/>
+         <column name="branchID" type = "int" />
+         <column name="clientID" type = "int" />
+         <column name="totalRevenue" type="int"/>
+         <column name="staffCommission" type="int"/>
+         <foreign-key name="branchID" table = "SBranch" column="branchID"/>
+         <foreign-key name="clientID" table = "SClient" column="clientID"/>
+      </fact-table>
+      <fact-table name="SSaleWest">
+         <key name="branchID"/>
+         <key name="clientID"/>
+         <column name="branchID" type = "int" />
+         <column name="clientID" type = "int" />
+         <column name="totalRevenue" type="int"/>
+         <column name="staffCommission" type="int"/>
+         <foreign-key name="branchID" table = "SBranch" column="branchID"/>
+         <foreign-key name="clientID" table = "SClient" column="clientID"/>
+      </fact-table>
+   </fact-tables>
+</sdl>
