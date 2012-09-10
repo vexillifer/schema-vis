@@ -1,0 +1,14 @@
+import networkx as nx
+DG = nx.DiGraph()
+DG.add_nodes_from(fnames)
+edges = []
+for key, values in links.iteritems():
+    eweight = {}
+    for v in values:
+        if v in eweight:
+            eweight[v] += 1
+        else:
+            eweight[v] = 1
+    for succ, weight in eweight.iteritems():
+        edges.append([key, succ, {'weight':weight}])
+DG.add_edges_from(edges)

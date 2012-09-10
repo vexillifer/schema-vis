@@ -5,8 +5,8 @@ counter = 0
 
 class XMLSchema
   constructor: (data) ->
-    @width = 700
-    @height = 500
+    @width = 750
+    @height = 600
     @data = data
 
     @nodes = []
@@ -19,6 +19,10 @@ class XMLSchema
     @layout_gravity = -0.01
     @damper = 0.1
     @force = null
+    @node_drag = null
+
+    @focused_node = null
+    @focused_node_data = null
 
     this.explore_data @data, {}
     this.visualize()
@@ -30,30 +34,31 @@ class XMLSchema
     node = {}
     link = {}
 
-    if parent.nodeType == 1
-      node["DOMNodeID"] = counter++
-      node["DOMNodeName"] = parent.nodeName
+    unless counter > 50
+      if parent.nodeType == 1
+        node["DOMNodeID"] = counter++
+        node["DOMNodeName"] = parent.nodeName
 
-    attributes = parent.attributes
-    if attributes? && attributes.length != 0
-      for index in [0..attributes.length-1]
-        attr = attributes.item(index)
-        node["#{attr.nodeName}"] = attr.nodeValue
-    @nodes.push node unless jQuery.isEmptyObject(node)
+      attributes = parent.attributes
+      if attributes? && attributes.length != 0
+        for index in [0..attributes.length-1]
+          attr = attributes.item(index)
+          node["#{attr.nodeName}"] = attr.nodeValue
+      @nodes.push node unless jQuery.isEmptyObject(node)
 
-    # Add PC links
-    if not jQuery.isEmptyObject(prevNode) && not jQuery.isEmptyObject(node)
-      link["source"] = prevNode
-      link["target"] = node
-    @links.push link unless jQuery.isEmptyObject(link)
+      # Add PC links
+      if not jQuery.isEmptyObject(prevNode) && not jQuery.isEmptyObject(node)
+        link["source"] = prevNode
+        link["target"] = node
+      @links.push link unless jQuery.isEmptyObject(link)
 
-    # Add first child node
-    firstChild = parent.firstChild
-    this.explore_data firstChild, node if firstChild?
+      # Add first child node
+      firstChild = parent.firstChild
+      this.explore_data firstChild, node if firstChild?
 
-    # Add next sibling
-    sibling = parent.nextSibling 
-    this.explore_data sibling, prevNode if sibling? 
+      # Add next sibling
+      sibling = parent.nextSibling 
+      this.explore_data sibling, prevNode if sibling? 
 
   visualize: () =>
     @visualization = d3.select("#vis").append("svg")
@@ -61,25 +66,55 @@ class XMLSchema
       .attr("height", @height)
       .attr("id", "svg_vis")
 
-    # Add a circle for each node and apply data
-    @circles = @visualization.selectAll("circle")
+    d3.selectAll("header")
+      .on("click", (d,i) -> that.clear_selection(d,i,this))
+
+    @lines = @visualization.selectAll("line.link")
+    .data(@links)
+    .enter().append("svg:line")
+    .attr("stroke-width", (d) -> 5)
+    .attr("stroke", "black")
+    .attr("class", "link")
+    .attr("source", (d) -> d.source)
+    .attr("target", (d) -> d.target)
+    .style(opacity: .2)
+
+    @node_drag = d3.behavior.drag()
+      .on("dragstart", (d,i) -> that.dragstart(d,i,this))
+      .on("drag", (d,i) -> that.dragmove(d,i,this))
+      .on("dragend", (d,i) -> that.dragend(d,i,this))
+
+    # Create a node element to append the svg circle and label
+    @circles = @visualization.selectAll("g.node")
       .data(@nodes, (d) -> d.DomParentID)
+      .enter().append("g")      
+      .attr("class", "node")
+      .on("mouseover", (d,i) -> that.show_details(d,i,this))
+      .on("mouseout", (d,i) -> that.hide_details(d,i,this))
+      .on("click", (d,i) -> that.focus_node(d,i,this))
+      .call(@node_drag);
 
     that = this
 
-    @circles.enter().append("circle")
+    @circles.append("circle")
       .attr("r", 0)
       .attr("fill", (d) => "#d84b2a")
       .attr("stroke-width", 2)
-      .attr("stroke", (d) => "black")
-      .attr("id", (d) -> "bubble_#{d.DOMParentID}")
-      .on("mouseover", (d,i) -> that.show_details(d,i,this))
-      .on("mouseout", (d,i) -> that.hide_details(d,i,this))
+      .attr("stroke", (d) => "#d84b2a")
+      .attr("id", (d) -> "bubble_#{d.DOMNodeID}")
 
-    @circles.transition().duration(2000).attr("r", (d) -> 15)
+    @circles.append("text")
+      .attr("text-anchor", "middle")
+      .attr("dy", ".3em")
+      .attr("style", "display:none")
+      .text((d) => d.DOMNodeName)
+
+    @circles.selectAll("circle").transition().duration(2000)
+      .attr("r", (d) -> 15)
+
 
   charge: (d) -> 
-    -200
+    -400
     # -Math.pow(@radius, 2.0) / 8
 
   start: () =>
@@ -88,16 +123,22 @@ class XMLSchema
       .links(@links)
       .size([@width, @height])
 
-      # define strength as relative distance
-
   display_group_all: () =>
     @force.gravity(@layout_gravity)
       .charge(this.charge)
       .friction(.9)
       .on "tick", (e) =>
-        @circles.each(this.move_towards_split(e.alpha))
+        @circles.selectAll("circle").each(this.move_towards_center(e.alpha))
           .attr("cx", (d) -> d.x)
           .attr("cy", (d) -> d.y)
+        @circles.selectAll("text").each(this.move_towards_center(e.alpha))
+          .attr("x", (d) -> d.x)
+          .attr("y", (d) -> d.y)
+        @lines.attr("x1", (d) -> d.source.x)
+          .attr("y1", (d) -> d.source.y)
+          .attr("x2", (d) -> d.target.x)
+          .attr("y2", (d) -> d.target.y)
+
     @force.start()    
 
   move_towards_center: (alpha) =>
@@ -105,30 +146,74 @@ class XMLSchema
       d.x = d.x + (@center.x - d.x) * (@damper + 0.02) * alpha
       d.y = d.y + (@center.y - d.y) * (@damper + 0.02) * alpha
 
-
-  move_towards_split: (alpha) =>
-    (d) =>
-      if d.DOMParentID < 25
-        target = {x: @width / 3, y: @height / 2}
-      else 
-        target = {x: 2 * @width / 3, y: @height / 2}
-
-      d.x = d.x + (target.x - d.x) * (@damper + 0.02) * alpha * 1.1
-      d.y = d.y + (target.y - d.y) * (@damper + 0.02) * alpha * 1.1
-
-
   show_details: (data, i, element) =>
-    d3.select(element).attr("stroke", "black")
+    # Emphasis hovered node
+    d3.select(element).select("circle").attr("stroke", "black")
+    d3.select(element).select("text").attr("style", "")
+
     content = ""
     for key, value of data
-      console.log key 
       content += "<span class=\"name\">#{key}</span>" + 
         "<span class=\"value\"> #{value}</span><br/>"
     @tooltip.showTooltip(content,d3.event)
 
   hide_details: (data, i, element) =>
     d3.select(element).attr("stroke", (d) => "#d84b2a")
+    d3.select(element).select("text")
+      .attr("style", "display:none; color: black;")
     @tooltip.hideTooltip()
+
+  clear_selection: (data, i, element) =>
+    @focused_node.attr("r", 15) if @focused_node?
+    @focused_node = null
+    d3.selectAll("#prop_panel").html("")
+
+  focus_node: (data, i, element) =>
+    # Emphasis selected node
+    element.ownerSVGElement.appendChild(element)
+    @focused_node.attr("r", 15) if @focused_node?
+    d3.select(element)
+      .attr("r", 25)
+    @focused_node = d3.select(element)
+    @focused_node_data = data
+
+    that = this
+
+    # Show details in properties panel
+    content = "<br/><br/><br/><br/><br/><br/>" # fix this
+    for key, value of data
+      content += "<span class=\"name\">#{key}</span>" + 
+        "<span class=\"pinnable\"> #{value}" + 
+          "<img src=\"..\\img\\pin-icon.png\" class=\"pin\" " +
+            "width=\"15\" alt=\"pin\"/></span><br/>"
+
+    d3.selectAll("#prop_panel").html(content)
+    d3.selectAll(".pin").on("click", (d,i) -> that.pin(d,i,this))
+
+  pin: (data, i, element) =>
+    key = element.parentNode.previousSibling.innerHTML
+    this.label_node(@focused_node, @focused_node_data[key])
+
+  label_node: (node, value) =>
+    # node.append("text")
+    #   .text(value)
+    #   .attr("dx", 12)
+    #   .attr("dy", ".35em")
+    # console.log node
+
+
+  # fix node so it is free from force
+  dragstart: (data, i, element) =>
+    data.fixed = true
+
+  dragmove: (data, i, element) =>
+    data.px += d3.event.dx
+    data.py += d3.event.dy
+    data.x += d3.event.dx
+    data.y += d3.event.dy
+
+   dragend: (data, i, element) =>
+    @force.resume()
 
 
 root = exports ? this
@@ -143,5 +228,5 @@ $ ->
   root.display_all = () =>
     chart.display_group_all()
 
-  d3.xml "data/SDL.xml", render_vis
+  d3.xml "data/AERL-short.ifc.xml", render_vis
 

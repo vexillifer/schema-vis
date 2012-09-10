@@ -3,23 +3,12 @@ a, a:visited, a:active {
 }
 
 #vis {
-  width: 940px;
-  height: 600px;
   clear: both;
   margin-bottom: 10px;
 }
 
 footer {
   text-align: center;
-}
-
-#view_selection {
-  margin-top: 10px;
-}
-
-.years {
-  font-size: 21px;
-  fill: #aaa;
 }
 
 .tooltip {
@@ -40,10 +29,25 @@ footer {
     z-index: 10;
 }
 
-.tooltip .title {
-    font-size: 13px;
-}
-
 .tooltip .name {
   font-weight:bold;
+}
+
+.prop_panel {
+  font-size: 13px;
+}
+
+.prop_panel .pinnable:hover {
+  font-weight:normal;
+}
+
+.prop_panel .name {
+  font-weight:bold;
+}
+
+.prop_panel .pin {
+  opacity:0.1;
+}
+.prop_panel .pin:hover {
+  opacity:1;
 }
