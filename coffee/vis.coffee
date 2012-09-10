@@ -9,6 +9,9 @@ class XMLSchema
     @height = 600
     @data = data
 
+    @zoom_min = .5
+    @zoom_max = 2
+
     @nodes = []
     @links = []
     @circles = null
@@ -16,10 +19,11 @@ class XMLSchema
 
     @tooltip = CustomTooltip("node_tooltip", 240)
     @center = {x: @width / 2, y: @height / 2}
-    @layout_gravity = -0.01
+    @layout_gravity = -0.02
     @damper = 0.1
     @force = null
     @node_drag = null
+    @zoom = null
 
     @focused_node = null
     @focused_node_data = null
@@ -69,20 +73,35 @@ class XMLSchema
     d3.selectAll("header")
       .on("click", (d,i) -> that.clear_selection(d,i,this))
 
-    @lines = @visualization.selectAll("line.link")
-    .data(@links)
-    .enter().append("svg:line")
-    .attr("stroke-width", (d) -> 5)
-    .attr("stroke", "black")
-    .attr("class", "link")
-    .attr("source", (d) -> d.source)
-    .attr("target", (d) -> d.target)
-    .style(opacity: .2)
+    that = this
 
+    # Define drag and zoom behaviours
     @node_drag = d3.behavior.drag()
       .on("dragstart", (d,i) -> that.dragstart(d,i,this))
       .on("drag", (d,i) -> that.dragmove(d,i,this))
       .on("dragend", (d,i) -> that.dragend(d,i,this))
+
+    @zoom = d3.behavior.zoom()
+      .on("zoom", (d,i) -> that.zooming(d,i))
+      .scaleExtent([@zoom_min, @zoom_max])
+
+    # Add zoom to rect so event does not propagate
+    @visualization.append("rect")
+      .attr("width", "100%") 
+      .attr("height", "100%") 
+      .attr("fill", "grey")
+      .call(@zoom)
+
+    # Add lines as under layer
+    @lines = @visualization.selectAll("line.link")
+      .data(@links)
+      .enter().append("svg:line")
+      .attr("stroke-width", (d) -> 5)
+      .attr("stroke", "black")
+      .attr("class", "link")
+      .attr("source", (d) -> d.source)
+      .attr("target", (d) -> d.target)
+      .style(opacity: .2)
 
     # Create a node element to append the svg circle and label
     @circles = @visualization.selectAll("g.node")
@@ -92,9 +111,7 @@ class XMLSchema
       .on("mouseover", (d,i) -> that.show_details(d,i,this))
       .on("mouseout", (d,i) -> that.hide_details(d,i,this))
       .on("click", (d,i) -> that.focus_node(d,i,this))
-      .call(@node_drag);
-
-    that = this
+      .call(@node_drag)
 
     @circles.append("circle")
       .attr("r", 0)
@@ -114,7 +131,7 @@ class XMLSchema
 
 
   charge: (d) -> 
-    -400
+    -500
     # -Math.pow(@radius, 2.0) / 8
 
   start: () =>
@@ -131,6 +148,7 @@ class XMLSchema
         @circles.selectAll("circle").each(this.move_towards_center(e.alpha))
           .attr("cx", (d) -> d.x)
           .attr("cy", (d) -> d.y)
+          # .attr("transform", (d) -> "translate(" + d.x + "," + d.y + ")")
         @circles.selectAll("text").each(this.move_towards_center(e.alpha))
           .attr("x", (d) -> d.x)
           .attr("y", (d) -> d.y)
@@ -212,8 +230,22 @@ class XMLSchema
     data.x += d3.event.dx
     data.y += d3.event.dy
 
-   dragend: (data, i, element) =>
+  dragend: (data, i, element) =>
     @force.resume()
+
+  zooming: (data, i) =>
+    if d3.event?
+      # @visualization
+      #   .attr("transform", "translate(" + d3.event.translate + ") " +
+      #     "scale(" + d3.event.scale + ")")
+      @circles.attr("transform", "scale(" + d3.event.scale + ") " +
+        "translate(" + d3.event.translate + ")")
+      @lines.attr("transform", "scale(" + d3.event.scale + ") " +
+        "translate(" + d3.event.translate + ")")
+      # all_circles = d3.selectAll("circle")
+      # all_circles.ownerSVGElement.appendChild(all_circles)
+      console.log @circles
+
 
 
 root = exports ? this
