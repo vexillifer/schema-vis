@@ -13,6 +13,7 @@ class XMLSchema
     @zoom_max = 2
     @zoom_show_labels = 7/8
     @zoom_hint_labels = 3/4
+    zoom_current_tier = 1
 
     @nodes = []
     @links = []
@@ -78,7 +79,7 @@ class XMLSchema
     d3.selectAll("header")
       .on("click", (d,i) -> that.clear_selection(d,i,this))
 
-    d3.select(window).on("keydown", (d,i) -> that.hide_children(null))
+    d3.select(window).on("keydown", (d,i) -> that.key_stroke())
 
     that = this
 
@@ -107,6 +108,7 @@ class XMLSchema
       .attr("class", "link")
       .attr("source", (d) -> d.source)
       .attr("target", (d) -> d.target)
+      .attr("collapsed", "false")
       .style(opacity: .2)
 
     # Create a node element to append the svg circle and label
@@ -117,7 +119,6 @@ class XMLSchema
       .on("mouseover", (d,i) -> that.show_details(d,i,this))
       .on("mouseout", (d,i) -> that.hide_details(d,i,this))
       .on("click", (d,i) -> that.select_node(d,i,this))
-      .on("keypress", (d,i) -> that.hide_children(d,i,this))
       .call(@node_drag)
 
     @circles.append("circle")
@@ -125,6 +126,7 @@ class XMLSchema
       .attr("fill", (d) => "#d84b2a")
       .attr("stroke-width", 2)
       .attr("stroke", (d) => "#d84b2a")
+      .attr("collapsed", "false")
       .attr("id", (d) -> "bubble_#{d.DOMNodeID}")
 
     @circles.append("text")
@@ -174,7 +176,8 @@ class XMLSchema
 
   show_details: (data, i, element) =>
     # Emphasis hovered node
-    d3.select(element).select("circle").attr("stroke", "black")
+    if d3.select(element).attr("collapsed") == "false"
+      d3.select(element).select("circle").attr("stroke", "black")
 
     content = ""
     for key, value of data
@@ -184,7 +187,7 @@ class XMLSchema
     @tooltip.showTooltip(content,d3.event)
 
   hide_details: (data, i, element) =>
-    unless element == @focused_node
+    if d3.select(element).attr("collapsed") == "false"
       d3.select(element).select("circle").attr("stroke", (d) => "#d84b2a")
     @tooltip.hideTooltip()
 
@@ -195,21 +198,22 @@ class XMLSchema
     d3.selectAll("#prop_panel").html("")
 
   select_node: (data, i, element) =>
-
+    # create that to preserve this within d3 select each call
     that = this
+
+    # Emphasis adjacent lines
     if @focused_node_data?
       focused_node_id = @focused_node_data.DOMNodeID
     else focused_node_id = null
-    # Emphasis adjacent lines
     @lines.each( (d, i) -> 
+      line = d3.select(this)
       if focused_node_id?
         if d.source.DOMNodeID == focused_node_id || d.target.DOMNodeID == focused_node_id 
-          line = d3.select(this)
-          unless line.attr("style") == "display:none"
-            console.log "display none"
+          if line.attr("collapsed") == "false"
             line.attr("style", "opacity:.2")
       if d.source.DOMNodeID == data.DOMNodeID || d.target.DOMNodeID == data.DOMNodeID 
-        d3.select(this).attr("style", "opacity:.7"))
+        if line.attr("collapsed") == "false"
+          line.attr("style", "opacity:.7"))
 
     # Emphasis selected node
     element.ownerSVGElement.appendChild(element)
@@ -217,7 +221,6 @@ class XMLSchema
     d3.select(element).attr("r", 25)
     @focused_node = d3.select(element)
     @focused_node_data = data
-    that = this
 
     # Show details in properties panel
     content = "<br/><br/><br/><br/><br/><br/>" # fix this
@@ -230,9 +233,6 @@ class XMLSchema
 
     d3.selectAll("#prop_panel").html(content)
     d3.selectAll(".pin").on("click", (d,i) -> that.pin(d,i,this))
-
-    # Hide children links and nodes on click
-    # that.hide_children data.children
 
     # @links = d3.layout.tree().links(@links);
     # @force.start()
@@ -268,6 +268,7 @@ class XMLSchema
       @lines.attr("transform", "scale(" + d3.event.scale + ") " +
         "translate(" + d3.event.translate + ")")
 
+      zoom_current_tier = d3.event.scale
       # if zoomed in, show the node labels
       if d3.event.scale > @zoom_max * @zoom_show_labels
         d3.selectAll("text").each((d, i) -> 
@@ -281,35 +282,84 @@ class XMLSchema
       else
         d3.selectAll("text").attr("style", "display:none")
 
-  # Recurse through children and hide nodes
-  # Fix when more keyCodes needed ***
-  hide_children: (children) =>
+  key_stroke: () =>
     if d3.event?
       if (d3.event.keyCode == 67)
+        # Show or hide children
         if @focused_node_data?
-          unless children?
-            children = @focused_node_data.children
-            # Copy flattened children to buffer
-            @focused_node_data["_children"] = children
-            @focused_node_data["children"] = []
-          for node in children
-            # Depth first, recurse through children
-            this.hide_children node.children
+          if @focused_node_data.children.length isnt 0
+            this.hide_children null
+          else if @focused_node_data._children.length isnt 0
+            this.show_children null
 
-            # Do not display child lines or nodes
-            @circles.each( (d, i) ->
-              if i == node.DOMNodeID
-                d3.select(this).select("circle")
-                  .attr("style", "display:none")
-                d3.select(this).select("text")
-                  .attr("style", "display:none")
-                  .attr("collapsed", "true"))
-            @lines.each( (d, i) -> 
-              if d.target.DOMNodeID == node.DOMNodeID
-                d3.select(this).attr("style", "display:none"))
+  # Recurse through children and hide nodes
+  hide_children: (children) =>
+    unless children?
+      @focused_node.select("circle").attr("fill", "darkred")
+      @focused_node.select("circle").attr("stroke", "darkred")
+      children = @focused_node_data.children
+      # Copy flattened children to buffer
+      @focused_node_data["_children"] = children
+      @focused_node_data["children"] = []
+    for node in children
+      # Depth first, recurse through children
+      this.hide_children node.children
 
+      # Do not display child lines or nodes
+      @circles.each( (d,i) ->
+        if i == node.DOMNodeID
+          d3.select(this).select("circle")
+            .attr("style", "display:none")
+            .attr("collapsed", "true")
+          d3.select(this).select("text")
+            .attr("style", "display:none")
+            .attr("collapsed", "true"))
+      @lines.each( (d, i) -> 
+        if d.target.DOMNodeID == node.DOMNodeID
+          d3.select(this)
+            .attr("style", "display:none")
+            .attr("collapsed", "true"))
 
+  show_children: (children) =>      
+    parent = false
+    unless children?
+      parent = true
+      @focused_node.select("circle").attr("fill", "#d84b2a")
+      @focused_node.select("circle").attr("stroke", "#d84b2a")
+      children = @focused_node_data._children
+      # Copy flattened children to buffer
+      @focused_node_data["children"] = children
+      @focused_node_data["_children"] = []
+    for node in children
+      # Depth first, recurse through children
+      this.show_children node.children
 
+      that = this
+      # Do not display child lines or nodes
+      @circles.each( (d,i) ->
+        if i == node.DOMNodeID
+          d3.select(this).select("circle")
+            .attr("style", "")
+            .attr("collapsed", "false")
+          # Apply text opacity depending on zoom
+          text = d3.select(this).select("text")
+          text.attr("collapsed", "false")
+          if that.zoom_current_tier > @zoom_max * @zoom_show_labels
+            text.attr("style", "")
+          else if that.zoom_current_tier > @zoom_max * @zoom_hint_labels
+            text.attr("style", "opacity:.5")
+          else 
+            text.attr("style", "opacity:0"))
+      @lines.each( (d, i) -> 
+        if d.target.DOMNodeID == node.DOMNodeID
+          if parent
+            d3.select(this)
+              .attr("collapsed", "false")
+              .attr("style", "opacity:.7")
+          else
+            d3.select(this)
+              .attr("collapsed", "false")
+              .attr("style", "opacity:.2"))
 
 
 root = exports ? this
