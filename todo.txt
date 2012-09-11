@@ -1,0 +1,27 @@
+Labeling
+    - pick label for a node
+    - group nodes by label
+
+Colour
+    - node and label colouring
+
+Zoom
+    - zoom into place of pointer
+    - show labels on zoom
+
+Tree
+    - create collapsible branches
+
+General
+    - group select
+    - save state
+
+Summarization
+    - depth and breadth of unknown characteristics
+    - may be raw data or a schema
+    - repeated node names may not be at the same level
+
+
+
+Immediate:
+    - node radius increase on focusing and line clearing

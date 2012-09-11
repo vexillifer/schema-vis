@@ -5,12 +5,14 @@ counter = 0
 
 class XMLSchema
   constructor: (data) ->
-    @width = 750
-    @height = 600
+    @width = 800
+    @height = 700
     @data = data
 
     @zoom_min = .5
     @zoom_max = 2
+    @zoom_show_labels = 7/8
+    @zoom_hint_labels = 3/4
 
     @nodes = []
     @links = []
@@ -38,7 +40,7 @@ class XMLSchema
     node = {}
     link = {}
 
-    unless counter > 50
+    unless counter > 100
       if parent.nodeType == 1
         node["DOMNodeID"] = counter++
         node["DOMNodeName"] = parent.nodeName
@@ -84,13 +86,12 @@ class XMLSchema
     @zoom = d3.behavior.zoom()
       .on("zoom", (d,i) -> that.zooming(d,i))
       .scaleExtent([@zoom_min, @zoom_max])
+    @visualization.call(@zoom)
 
-    # Add zoom to rect so event does not propagate
     @visualization.append("rect")
       .attr("width", "100%") 
       .attr("height", "100%") 
-      .attr("fill", "grey")
-      .call(@zoom)
+      .attr("style", "opacity:.1")
 
     # Add lines as under layer
     @lines = @visualization.selectAll("line.link")
@@ -110,7 +111,7 @@ class XMLSchema
       .attr("class", "node")
       .on("mouseover", (d,i) -> that.show_details(d,i,this))
       .on("mouseout", (d,i) -> that.hide_details(d,i,this))
-      .on("click", (d,i) -> that.focus_node(d,i,this))
+      .on("click", (d,i) -> that.select_node(d,i,this))
       .call(@node_drag)
 
     @circles.append("circle")
@@ -167,7 +168,6 @@ class XMLSchema
   show_details: (data, i, element) =>
     # Emphasis hovered node
     d3.select(element).select("circle").attr("stroke", "black")
-    d3.select(element).select("text").attr("style", "")
 
     content = ""
     for key, value of data
@@ -176,25 +176,29 @@ class XMLSchema
     @tooltip.showTooltip(content,d3.event)
 
   hide_details: (data, i, element) =>
-    d3.select(element).attr("stroke", (d) => "#d84b2a")
-    d3.select(element).select("text")
-      .attr("style", "display:none; color: black;")
+    unless element == @focused_node
+      d3.select(element).select("circle").attr("stroke", (d) => "#d84b2a")
     @tooltip.hideTooltip()
 
   clear_selection: (data, i, element) =>
+    @lines.attr("style", "opacity:.2")
     @focused_node.attr("r", 15) if @focused_node?
     @focused_node = null
     d3.selectAll("#prop_panel").html("")
 
-  focus_node: (data, i, element) =>
+  select_node: (data, i, element) =>
+    # Emphasis adjacent lines
+    @lines.attr("style", "opacity:.2")
+    @lines.each( (d, i) -> 
+      if d.source.DOMNodeID == data.DOMNodeID || d.target.DOMNodeID == data.DOMNodeID 
+        d3.select(this).attr("style", "opacity:.7"))
+
     # Emphasis selected node
     element.ownerSVGElement.appendChild(element)
     @focused_node.attr("r", 15) if @focused_node?
-    d3.select(element)
-      .attr("r", 25)
+    d3.select(element).attr("r", 25)
     @focused_node = d3.select(element)
     @focused_node_data = data
-
     that = this
 
     # Show details in properties panel
@@ -219,7 +223,6 @@ class XMLSchema
     #   .attr("dy", ".35em")
     # console.log node
 
-
   # fix node so it is free from force
   dragstart: (data, i, element) =>
     data.fixed = true
@@ -235,18 +238,18 @@ class XMLSchema
 
   zooming: (data, i) =>
     if d3.event?
-      # @visualization
-      #   .attr("transform", "translate(" + d3.event.translate + ") " +
-      #     "scale(" + d3.event.scale + ")")
       @circles.attr("transform", "scale(" + d3.event.scale + ") " +
         "translate(" + d3.event.translate + ")")
       @lines.attr("transform", "scale(" + d3.event.scale + ") " +
         "translate(" + d3.event.translate + ")")
-      # all_circles = d3.selectAll("circle")
-      # all_circles.ownerSVGElement.appendChild(all_circles)
-      console.log @circles
 
-
+      # if zoomed in, show the node labels
+      if d3.event.scale > @zoom_max * @zoom_show_labels
+        d3.selectAll("text").attr("style", "")
+      else if d3.event.scale > @zoom_max * @zoom_hint_labels
+        d3.selectAll("text").attr("style", "opacity:.5")
+      else
+        d3.selectAll("text").attr("style", "display:none")
 
 root = exports ? this
 
