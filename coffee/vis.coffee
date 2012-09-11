@@ -21,7 +21,7 @@ class XMLSchema
 
     @tooltip = CustomTooltip("node_tooltip", 240)
     @center = {x: @width / 2, y: @height / 2}
-    @layout_gravity = -0.02
+    @layout_gravity = -.2
     @damper = 0.1
     @force = null
     @node_drag = null
@@ -40,10 +40,12 @@ class XMLSchema
     node = {}
     link = {}
 
-    unless counter > 100
+    unless counter > 75
       if parent.nodeType == 1
         node["DOMNodeID"] = counter++
         node["DOMNodeName"] = parent.nodeName
+        node["children"] = []
+        node["_children"] = []
 
       attributes = parent.attributes
       if attributes? && attributes.length != 0
@@ -56,6 +58,7 @@ class XMLSchema
       if not jQuery.isEmptyObject(prevNode) && not jQuery.isEmptyObject(node)
         link["source"] = prevNode
         link["target"] = node
+        prevNode["children"].push node
       @links.push link unless jQuery.isEmptyObject(link)
 
       # Add first child node
@@ -74,6 +77,8 @@ class XMLSchema
 
     d3.selectAll("header")
       .on("click", (d,i) -> that.clear_selection(d,i,this))
+
+    d3.select(window).on("keydown", (d,i) -> that.hide_children(null))
 
     that = this
 
@@ -112,6 +117,7 @@ class XMLSchema
       .on("mouseover", (d,i) -> that.show_details(d,i,this))
       .on("mouseout", (d,i) -> that.hide_details(d,i,this))
       .on("click", (d,i) -> that.select_node(d,i,this))
+      .on("keypress", (d,i) -> that.hide_children(d,i,this))
       .call(@node_drag)
 
     @circles.append("circle")
@@ -125,6 +131,7 @@ class XMLSchema
       .attr("text-anchor", "middle")
       .attr("dy", ".3em")
       .attr("style", "display:none")
+      .attr("collapsed", "false")
       .text((d) => d.DOMNodeName)
 
     @circles.selectAll("circle").transition().duration(2000)
@@ -171,8 +178,9 @@ class XMLSchema
 
     content = ""
     for key, value of data
-      content += "<span class=\"name\">#{key}</span>" + 
-        "<span class=\"value\"> #{value}</span><br/>"
+      unless key == "children" || key == "_children"
+        content += "<span class=\"name\">#{key}</span>" + 
+          "<span class=\"value\"> #{value}</span><br/>"
     @tooltip.showTooltip(content,d3.event)
 
   hide_details: (data, i, element) =>
@@ -187,9 +195,19 @@ class XMLSchema
     d3.selectAll("#prop_panel").html("")
 
   select_node: (data, i, element) =>
+
+    that = this
+    if @focused_node_data?
+      focused_node_id = @focused_node_data.DOMNodeID
+    else focused_node_id = null
     # Emphasis adjacent lines
-    @lines.attr("style", "opacity:.2")
     @lines.each( (d, i) -> 
+      if focused_node_id?
+        if d.source.DOMNodeID == focused_node_id || d.target.DOMNodeID == focused_node_id 
+          line = d3.select(this)
+          unless line.attr("style") == "display:none"
+            console.log "display none"
+            line.attr("style", "opacity:.2")
       if d.source.DOMNodeID == data.DOMNodeID || d.target.DOMNodeID == data.DOMNodeID 
         d3.select(this).attr("style", "opacity:.7"))
 
@@ -204,13 +222,20 @@ class XMLSchema
     # Show details in properties panel
     content = "<br/><br/><br/><br/><br/><br/>" # fix this
     for key, value of data
-      content += "<span class=\"name\">#{key}</span>" + 
-        "<span class=\"pinnable\"> #{value}" + 
-          "<img src=\"..\\img\\pin-icon.png\" class=\"pin\" " +
-            "width=\"15\" alt=\"pin\"/></span><br/>"
+      unless key == "children" || key == "_children"
+        content += "<span class=\"name\">#{key}</span>" + 
+          "<span class=\"pinnable\"> #{value}" + 
+            "<img src=\"..\\img\\pin-icon.png\" class=\"pin\" " +
+              "width=\"15\" alt=\"pin\"/></span><br/>"
 
     d3.selectAll("#prop_panel").html(content)
     d3.selectAll(".pin").on("click", (d,i) -> that.pin(d,i,this))
+
+    # Hide children links and nodes on click
+    # that.hide_children data.children
+
+    # @links = d3.layout.tree().links(@links);
+    # @force.start()
 
   pin: (data, i, element) =>
     key = element.parentNode.previousSibling.innerHTML
@@ -245,11 +270,47 @@ class XMLSchema
 
       # if zoomed in, show the node labels
       if d3.event.scale > @zoom_max * @zoom_show_labels
-        d3.selectAll("text").attr("style", "")
+        d3.selectAll("text").each((d, i) -> 
+          if d3.select(this).attr("collapsed") == "false"
+            d3.select(this).attr("style", ""))
       else if d3.event.scale > @zoom_max * @zoom_hint_labels
-        d3.selectAll("text").attr("style", "opacity:.5")
+        d3.selectAll("text").each((d, i) -> 
+          d3.select(this).attr("collapsed")
+          if d3.select(this).attr("collapsed") == "false"
+            d3.select(this).attr("style", "opacity:.5"))
       else
         d3.selectAll("text").attr("style", "display:none")
+
+  # Recurse through children and hide nodes
+  # Fix when more keyCodes needed ***
+  hide_children: (children) =>
+    if d3.event?
+      if (d3.event.keyCode == 67)
+        if @focused_node_data?
+          unless children?
+            children = @focused_node_data.children
+            # Copy flattened children to buffer
+            @focused_node_data["_children"] = children
+            @focused_node_data["children"] = []
+          for node in children
+            # Depth first, recurse through children
+            this.hide_children node.children
+
+            # Do not display child lines or nodes
+            @circles.each( (d, i) ->
+              if i == node.DOMNodeID
+                d3.select(this).select("circle")
+                  .attr("style", "display:none")
+                d3.select(this).select("text")
+                  .attr("style", "display:none")
+                  .attr("collapsed", "true"))
+            @lines.each( (d, i) -> 
+              if d.target.DOMNodeID == node.DOMNodeID
+                d3.select(this).attr("style", "display:none"))
+
+
+
+
 
 root = exports ? this
 

@@ -7,7 +7,7 @@ Colour
 
 Zoom
     - zoom into place of pointer
-    - show labels on zoom
+    - emphasis child nodes and expand trees
 
 Tree
     - create collapsible branches
@@ -17,11 +17,9 @@ General
     - save state
 
 Summarization
-    - depth and breadth of unknown characteristics
+    - pre-process DOM with summarization algo
+
+Data Characteristics
+    - depth and breadth are unknown
     - may be raw data or a schema
     - repeated node names may not be at the same level
-
-
-
-Immediate:
-    - node radius increase on focusing and line clearing
