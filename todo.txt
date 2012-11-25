@@ -9,9 +9,6 @@ Zoom
     - zoom into place of pointer
     - emphasis child nodes and expand trees
 
-Tree
-    - create collapsible branches
-
 General
     - group select
     - save state
