@@ -34,26 +34,28 @@ class XMLSchema
     @explore_data @data, {}
     @visualize()
 
-
-  # Create node for parent and explore children and siblings
-  # Use prevID to create links from child -> parent
+  # Builds schema structure 
+  # Method: Creates a node for parent element and recurse through 
+  # children and siblings. Uses prevID to create links from child -> parent
   explore_data: (parent, prevNode) =>
-    # Add current node
     node = {}
     link = {}
 
+    # Arbitrary limit to visualization size, replace with summarization
     unless counter > 75
 
       # if parent.nodeType == 3
       #   if parent.data.length not 0
       #     console.log parent.data
 
+      # Set node's identifying features, for the visualization's context
       if parent.nodeType == 1
         node["DOMNodeID"] = counter++
         node["DOMNodeName"] = parent.nodeName
         node["children"] = []
         node["_children"] = []
 
+      # Add element's attributes added as node meta data 
       attributes = parent.attributes
       if attributes? && attributes.length != 0
         for index in [0..attributes.length-1]
@@ -76,18 +78,17 @@ class XMLSchema
       sibling = parent.nextSibling 
       @explore_data sibling, prevNode if sibling? 
 
+  # Create the visual elements for the tree components
+  # Uses D3.js for visualization
   visualize: () =>
     @visualization = d3.select("#vis").append("svg")
       .attr("width", @width)
       .attr("height", @height)
       .attr("id", "svg_vis")
 
-    # d3.selectAll("header")
-    #   .on("click", (d,i) -> that.clear_selection(d,i,this))
+    that = this
 
     d3.select(window).on("keydown", (d,i) -> that.key_stroke())
-
-    that = this
 
     # Define drag and zoom behaviours
     @node_drag = d3.behavior.drag()
@@ -105,7 +106,7 @@ class XMLSchema
       .attr("height", "100%") 
       .attr("style", "opacity:.1")
 
-    # Add lines as under layer
+    # Add lines as an under layer
     @lines = @visualization.selectAll("line.link")
       .data(@links)
       .enter().append("svg:line")
@@ -145,7 +146,42 @@ class XMLSchema
     @circles.selectAll("circle").transition().duration(2000)
       .attr("r", (d) -> 15)
 
+  # Fix node so it is free from force
+  dragstart: (data, i, element) =>
+    data.fixed = true
 
+  dragmove: (data, i, element) =>
+    data.px += d3.event.dx
+    data.py += d3.event.dy
+    data.x += d3.event.dx
+    data.y += d3.event.dy
+
+  dragend: (data, i, element) =>
+    @force.resume()
+
+  # Apply custom zoom function: as zoom occurs, show node names
+  zooming: (data, i) =>
+    if d3.event?
+      @circles.attr("transform", "scale(" + d3.event.scale + ") " +
+        "translate(" + d3.event.translate + ")")
+      @lines.attr("transform", "scale(" + d3.event.scale + ") " +
+        "translate(" + d3.event.translate + ")")
+
+      zoom_current_tier = d3.event.scale
+      # if zoomed in, show the node labels
+      if d3.event.scale > @zoom_max * @zoom_show_labels
+        d3.selectAll("text").each((d, i) -> 
+          if d3.select(@).attr("collapsed") == "false"
+            d3.select(@).attr("style", ""))
+      else if d3.event.scale > @zoom_max * @zoom_hint_labels
+        d3.selectAll("text").each((d, i) -> 
+          d3.select(@).attr("collapsed")
+          if d3.select(@).attr("collapsed") == "false"
+            d3.select(@).attr("style", "opacity:.5"))
+      else
+        d3.selectAll("text").attr("style", "display:none")
+
+  # Uses D3.js gravity layout
   charge: (d) -> 
     -500
     # -Math.pow(@radius, 2.0) / 8
@@ -164,7 +200,6 @@ class XMLSchema
         @circles.selectAll("circle").each(@move_towards_center(e.alpha))
           .attr("cx", (d) -> d.x)
           .attr("cy", (d) -> d.y)
-          # .attr("transform", (d) -> "translate(" + d.x + "," + d.y + ")")
         @circles.selectAll("text").each(@move_towards_center(e.alpha))
           .attr("x", (d) -> d.x)
           .attr("y", (d) -> d.y)
@@ -179,7 +214,19 @@ class XMLSchema
     (d) =>
       d.x = d.x + (@center.x - d.x) * (@damper + 0.02) * alpha
       d.y = d.y + (@center.y - d.y) * (@damper + 0.02) * alpha
+  
+  pin: (data, i, element) =>
+    key = element.parentNode.previousSibling.innerHTML
+    @label_node(@focused_node, @focused_node_data[key])
 
+  label_node: (node, value) =>
+    # node.append("text")
+    #   .text(value)
+    #   .attr("dx", 12)
+    #   .attr("dy", ".35em")
+    # console.log node
+
+  # Node hover tool tip
   show_details: (data, i, element) =>
     # Emphasis hovered node
     if d3.select(element).attr("collapsed") == "false"
@@ -187,22 +234,20 @@ class XMLSchema
 
     content = ""
     for key, value of data
-      unless key == "children" || key == "_children" || key == "x" || key == "px" || key == "y" || key == "py" || key == "index"
+      unless key == "children" || key == "_children" || key == "x" || 
+      key == "px" || key == "y" || key == "py" || key == "index"
         content += "<span class=\"name\">#{key}</span>" + 
           "<span class=\"value\"> #{value}</span><br/>"
     @tooltip.showTooltip(content,d3.event)
 
+  # Remove node hover tool tip
   hide_details: (data, i, element) =>
     if d3.select(element).attr("collapsed") == "false"
       d3.select(element).select("circle").attr("stroke", (d) => "#d84b2a")
     @tooltip.hideTooltip()
 
-  clear_selection: (data, i, element) =>
-    @lines.attr("style", "opacity:.2")
-    @focused_node.attr("r", 15) if @focused_node?
-    @focused_node = null
-    d3.selectAll("#prop_panel").html("")
-
+  # Make the selected node 'focused'
+  # Apply style and show meta data
   select_node: (data, i, element) =>
     # create that to preserve this within d3 select each call
     that = this
@@ -231,7 +276,8 @@ class XMLSchema
     # Show details in properties panel
     content = "<br/><br/><br/><br/><br/><br/>" # fix this
     for key, value of data
-      unless key == "children" || key == "_children" || key == "x" || key == "px" || key == "y" || key == "py" || key == "index" || key == "fixed"
+      unless key == "children" || key == "_children" || key == "x" || key == "px" ||
+       key == "y" || key == "py" || key == "index" || key == "fixed"
         content += "<span class=\"name\">#{key}</span>" + 
           "<span class=\"pinnable\"> #{value}" + 
             "<img src=\"..\\img\\pin-icon.png\" class=\"pin\" " +
@@ -240,57 +286,18 @@ class XMLSchema
     d3.selectAll("#prop_panel").html(content)
     d3.selectAll(".pin").on("click", (d,i) -> that.pin(d,i,this))
 
-    # @links = d3.layout.tree().links(@links);
-    # @force.start()
+  # Remove node from 'focus'
+  clear_selection: (data, i, element) =>
+    @lines.attr("style", "opacity:.2")
+    @focused_node.attr("r", 15) if @focused_node?
+    @focused_node = null
+    d3.selectAll("#prop_panel").html("")
+  
 
-  pin: (data, i, element) =>
-    key = element.parentNode.previousSibling.innerHTML
-    @label_node(@focused_node, @focused_node_data[key])
-
-  label_node: (node, value) =>
-    # node.append("text")
-    #   .text(value)
-    #   .attr("dx", 12)
-    #   .attr("dy", ".35em")
-    # console.log node
-
-  # fix node so it is free from force
-  dragstart: (data, i, element) =>
-    data.fixed = true
-
-  dragmove: (data, i, element) =>
-    data.px += d3.event.dx
-    data.py += d3.event.dy
-    data.x += d3.event.dx
-    data.y += d3.event.dy
-
-  dragend: (data, i, element) =>
-    @force.resume()
-
-  zooming: (data, i) =>
-    if d3.event?
-      @circles.attr("transform", "scale(" + d3.event.scale + ") " +
-        "translate(" + d3.event.translate + ")")
-      @lines.attr("transform", "scale(" + d3.event.scale + ") " +
-        "translate(" + d3.event.translate + ")")
-
-      zoom_current_tier = d3.event.scale
-      # if zoomed in, show the node labels
-      if d3.event.scale > @zoom_max * @zoom_show_labels
-        d3.selectAll("text").each((d, i) -> 
-          if d3.select(@).attr("collapsed") == "false"
-            d3.select(@).attr("style", ""))
-      else if d3.event.scale > @zoom_max * @zoom_hint_labels
-        d3.selectAll("text").each((d, i) -> 
-          d3.select(@).attr("collapsed")
-          if d3.select(@).attr("collapsed") == "false"
-            d3.select(@).attr("style", "opacity:.5"))
-      else
-        d3.selectAll("text").attr("style", "display:none")
-
+  # Extra functionality through key shortcuts
   key_stroke: () =>
     if d3.event?
-      # Focus in on node and group them, children
+      # Aggregate node (not fully implemented)
       if (d3.event.keyCode == 65)
         node_name = @focused_node_data.DOMNodeName
         @circles.each( (d,i) ->
@@ -298,14 +305,14 @@ class XMLSchema
             console.log node_name
         )
       if (d3.event.keyCode == 67)
-        # Show or hide children
+        # Show or hide children (key: 'C')
         if @focused_node_data?
           if @focused_node_data.children.length isnt 0
             @hide_children null
           else if @focused_node_data._children.length isnt 0
             @show_children null
 
-  # Recurse through children and hide nodes
+  # Recurse through children and hide those nodes from the vis
   hide_children: (children) =>
     unless children?
       @focused_node.select("circle").attr("fill", "darkred")
@@ -318,7 +325,7 @@ class XMLSchema
       # Depth first, recurse through children
       @hide_children node.children
 
-      # Do not display child lines or nodes
+      # Remove child lines and nodes from vis
       @circles.each( (d,i) ->
         if i == node.DOMNodeID
           d3.select(@).select("circle")
@@ -333,6 +340,7 @@ class XMLSchema
             .attr("style", "display:none")
             .attr("collapsed", "true"))
 
+  # Recurse through children and show those nodes in the vis
   show_children: (children) =>      
     parent = false
     unless children?
@@ -340,7 +348,7 @@ class XMLSchema
       @focused_node.select("circle").attr("fill", "#d84b2a")
       @focused_node.select("circle").attr("stroke", "#d84b2a")
       children = @focused_node_data._children
-      # Copy flattened children to buffer
+      # Copy expanded children back into children slot
       @focused_node_data["children"] = children
       @focused_node_data["_children"] = []
     for node in children
@@ -348,7 +356,8 @@ class XMLSchema
       @show_children node.children
 
       that = this
-      # Do not display child lines or nodes
+      # Show child node and links to parent
+      # Apply style according to zoom and node selection
       @circles.each( (d,i) ->
         if i == node.DOMNodeID
           d3.select(@).select("circle")
@@ -377,6 +386,7 @@ class XMLSchema
 
 root = exports ? this
 
+# Run the visualization on an XML file
 $ ->
   chart = null
 
