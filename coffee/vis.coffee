@@ -5,8 +5,8 @@ counter = 0
 
 class XMLSchema
   constructor: (data) ->
-    @width = 800
-    @height = 700
+    @width = window.innerWidth
+    @height = window.innerHeight
     @data = data
 
     @zoom_min = .5
@@ -130,9 +130,9 @@ class XMLSchema
 
     @circles.append("circle")
       .attr("r", 0)
-      .attr("fill", (d) => "#d84b2a")
+      .attr("fill", (d) => "#8b9dc3")
       .attr("stroke-width", 2)
-      .attr("stroke", (d) => "#d84b2a")
+      .attr("stroke", (d) => "#3b5998")
       .attr("collapsed", "false")
       .attr("id", (d) -> "bubble_#{d.DOMNodeID}")
 
@@ -232,12 +232,14 @@ class XMLSchema
     if d3.select(element).attr("collapsed") == "false"
       d3.select(element).select("circle").attr("stroke", "black")
 
-    content = ""
+    content = "<table>"
     for key, value of data
       unless key == "children" || key == "_children" || key == "x" || 
       key == "px" || key == "y" || key == "py" || key == "index"
-        content += "<span class=\"name\">#{key}</span>" + 
-          "<span class=\"value\"> #{value}</span><br/>"
+        content += "<tr><td><span class=\"name\">#{key}</span></td>" + 
+          "<td><span class=\"value\"> #{value}</span></td></tr>"
+
+    content += "</table>"
     @tooltip.showTooltip(content,d3.event)
 
   # Remove node hover tool tip
@@ -274,14 +276,14 @@ class XMLSchema
     @focused_node_data = data
 
     # Show details in properties panel
-    content = "<br/><br/><br/><br/><br/><br/>" # fix this
+    content = "<table class=\"attr-table\">" # fix this
     for key, value of data
       unless key == "children" || key == "_children" || key == "x" || key == "px" ||
        key == "y" || key == "py" || key == "index" || key == "fixed"
-        content += "<span class=\"name\">#{key}</span>" + 
-          "<span class=\"pinnable\"> #{value}" + 
-            "<img src=\"..\\img\\pin-icon.png\" class=\"pin\" " +
-              "width=\"15\" alt=\"pin\"/></span><br/>"
+        content += "<tr><td><img src=\"/img/pin-icon.png\" class=\"pin\" width=\"16\" \" />&nbsp;<span class=\"name\">#{key}</span></td>" + 
+          "<td><span class=\"pinnable\"> #{value}</span></td></tr>"
+
+    content += "</table>"
 
     d3.selectAll("#prop_panel").html(content)
     d3.selectAll(".pin").on("click", (d,i) -> that.pin(d,i,this))
@@ -315,8 +317,8 @@ class XMLSchema
   # Recurse through children and hide those nodes from the vis
   hide_children: (children) =>
     unless children?
-      @focused_node.select("circle").attr("fill", "darkred")
-      @focused_node.select("circle").attr("stroke", "darkred")
+      @focused_node.select("circle").attr("fill", "#3b5998")
+      @focused_node.select("circle").attr("stroke", "#263d6c")
       children = @focused_node_data.children
       # Copy flattened children to buffer
       @focused_node_data["_children"] = children
@@ -345,8 +347,8 @@ class XMLSchema
     parent = false
     unless children?
       parent = true
-      @focused_node.select("circle").attr("fill", "#d84b2a")
-      @focused_node.select("circle").attr("stroke", "#d84b2a")
+      @focused_node.select("circle").attr("fill", "#8b9dc3")
+      @focused_node.select("circle").attr("stroke", "#3b5998")
       children = @focused_node_data._children
       # Copy expanded children back into children slot
       @focused_node_data["children"] = children
@@ -397,5 +399,5 @@ $ ->
   root.display_all = () =>
     chart.display_group_all()
 
-  d3.xml "data/AERL-short.ifc.xml", render_vis
+  d3.xml "data/FB-RAW-02-20-13.xml", render_vis
 

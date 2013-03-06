@@ -1,10 +1,27 @@
+body {
+  margin: 0;
+  padding: 0;
+}
+
 a, a:visited, a:active {
   color: #444;
 }
 
 #vis {
-  clear: both;
-  margin-bottom: 10px;
+
+}
+
+#logo {
+  position: absolute;
+  left: 50px;
+  top: 20px;
+}
+
+#logo span {
+  font-family: 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif;
+  font-size: 42px;
+  color: #aaa;
+  text-shadow: 0 1px 1px #eee;
 }
 
 footer {
@@ -33,7 +50,25 @@ footer {
   font-weight:bold;
 }
 
+.attr-table {
+
+}
+
+.attr-table td{
+  padding: 5px;
+}
+
+.attr-table tr:nth-child(odd) {
+  background: rgba(240,240,240,.6);
+}
+
 .prop_panel {
+  position: absolute;
+  top: 20px;
+  right: 50px;
+  padding: 10px;
+  border-radius: 5px;
+  background: rgba(255,255,255,.7);
   font-size: 13px;
 }
 
@@ -46,8 +81,8 @@ footer {
 }
 
 .prop_panel .pin {
-  opacity:0.1;
+  /*opacity:0.1;*/
 }
 .prop_panel .pin:hover {
-  opacity:1;
+  /*opacity:1;*/
 }
