@@ -5,6 +5,19 @@ counter = 0
 
 class XMLSchema
   constructor: (data) ->
+    
+    # default vis style settings
+    @config = {
+      node_fill: '#8b9dc3',
+      node_stroke: '#3b5998',
+      node_stroke_width: 2,
+      node_radius: 30,
+      node_text_style: '',
+      line_stroke_width: 5,
+      line_stroke: 'black',
+      line_stroke_opacity: .2
+    }
+
     @width = window.innerWidth
     @height = window.innerHeight
     @data = data
@@ -15,8 +28,17 @@ class XMLSchema
     @zoom_hint_labels = 3/4
     zoom_current_tier = 1
 
-    @nodes = []
-    @links = []
+    # these parameters completely
+    # specify a visualization
+    @nodes  = []
+    @links  = []
+    @foci   = []
+    @link_distance = 80
+
+    # network data
+    @people = []
+    @index  = {}
+
     @circles = null
     @visualization = null
 
@@ -31,12 +53,97 @@ class XMLSchema
     @focused_node = null
     @focused_node_data = null
 
-    @explore_data @data, {}
-    @visualize()
+    if @data.firstChild.nodeName == 'network'
+      @explore_network(@data)
+      @viz_default()
+    else
+      #@explore_data @data, {}
+      #@visualize()
+      console.error 'Data is not a social network.'
 
+  # Compute all nodes and links in network
+  # 1) Create a node for each profile
+  # 2) Create a link for each connection
+  explore_network: (network) =>
+    node = {}
+    attrs = ['uid','name','sex','locale']
+
+    people = network.firstChild.querySelectorAll('person')
+
+    for person in people
+      node = {}
+      for attr in person.childNodes
+        # look for attribute-esque children
+        if attr.firstChild != null and
+        attr.firstChild.nodeType == 3 and
+        attr.firstChild.nodeValue.trim() != '' and
+        attr.nodeName in attrs
+          node[attr.nodeName] = attr.firstChild.nodeValue
+      copy = $.extend({}, node)
+      copy.DOMNodeName = copy.name
+      @index[copy.name] = copy 
+      @people.push(copy)
+
+  viz_reset: () =>
+    @nodes.length = 0
+    @foci.length  = 0
+    @links.length = 0
+    @link_distance = 80
+
+  viz_default: () =>
+    @viz_reset()
+
+    # Show a summary of a person
+    posts = {}
+    photos = {}
+    statuses = {}
+
+    person = {
+      'name': 'String',
+      'sex': 'ENUM{male,female}',
+      'locale': 'ENUM{en_US,en_GB}',
+      'uid': 'Integer',
+      'DOMNodeName': 'person',
+      'children': [],
+      '_children': []
+    }
+
+    photos = {
+      'DOMNodeName': 'photos',
+      'children': [],
+      '_children': []
+    }
+
+    posts = {
+      'DOMNodeName': 'posts',
+      'children': [],
+      '_children': []
+    }
+
+    statuses = {
+      'DOMNodeName': 'statuses',
+      'children': [],
+      '_children': []
+    }
+
+    person.children.push(photos)
+    person.children.push(posts)
+    person.children.push(statuses)
+
+    @nodes.push(person)
+    @nodes.push(photos)
+    @nodes.push(posts)
+    @nodes.push(statuses)
+
+    @links.push({'source': person,'target': photos})
+    @links.push({'source': person,'target': posts})
+    @links.push({'source': person,'target': statuses})
+
+    @visualize_ex()
   # Builds schema structure 
   # Method: Creates a node for parent element and recurse through 
   # children and siblings. Uses prevID to create links from child -> parent
+  ###
   explore_data: (parent, prevNode) =>
     node = {}
     link = {}
@@ -80,6 +187,98 @@ class XMLSchema
 
   # Create the visual elements for the tree components
   # Uses D3.js for visualization
+  # Extended to support per-node properties:
+  # stroke, strokeWidth, fill, text, textStyle, radius 
+  ###
+  visualize_ex: () =>
+    @visualization = d3.select('#vis').append('svg')
+      .attr( 'width', @width)
+      .attr('height', @height)
+      .attr(    'id', 'svg_vis')
+
+    $this = this
+
+    d3.select(window).on('keydown', (d,i) -> $this.key_stroke_ex())
+
+    @node_drag = d3.behavior.drag()
+      .on('drag',      (d,i) -> $this.dragmove(d,i,this))
+      .on('dragstart', (d,i) -> $this.dragstart(d,i,this))
+      .on('dragend',   (d,i) -> $this.dragend(d,i,this))
+
+    @zoom = d3.behavior.zoom()
+      .on('zoom', (d,i) -> $this.zooming(d,i))
+      .scaleExtent([@zoom_min, @zoom_max])
+    
+    @visualization.call(@zoom)
+
+    # build up the SVG
+    @visualization.append("rect")
+      .attr( 'width', '100%') 
+      .attr('height', '100%') 
+      .attr( 'style', 'opacity:.1') # rect is black by default??
+
+    # create links
+    @lines = @visualization.selectAll('line.link')
+      .data(@links)
+      .enter().append('svg:line')
+      .attr('stroke-width', (d) -> d.strokeWidth or $this.config.line_stroke_width)
+      .attr(      'stroke', (d) -> d.stroke or $this.config.line_stroke)
+      .attr(       'class', 'link')
+      .attr(      'source', (d) -> d.source)
+      .attr(      'target', (d) -> d.target)
+      .attr(   'collapsed', (d) -> d.collapsed or 'false')
+      .style(    'opacity', (d) -> d.opacity or $this.config.line_stroke_opacity)
+
+    # create svg nodes for circles/labels
+    @circles = @visualization.selectAll('g.node')
+      .data(@nodes, (d) -> d.DomParentID)
+      .enter().append('g')      
+      .attr('class',   'node')
+      .on('mouseover', (d,i) -> $this.show_details(d,i,this))
+      .on( 'mouseout', (d,i) -> $this.hide_details(d,i,this))
+      .on(    'click', (d,i) -> $this.select_node(d,i,this))
+      .call(@node_drag)
+
+    # create node circles 
+    @circles.append('circle')
+      .attr('r', 0)
+      .attr(        'fill', (d,i) => d.fill or $this.config.node_fill)
+      .attr('stroke-width', (d,i) => d.strokeWidth or $this.config.node_stroke_width)
+      .attr(      'stroke', (d,i) => d.stroke or $this.config.node_stroke)
+      .attr(   'collapsed', 'false')
+      .attr(          'id', (d) -> 'bubble_#{d.DOMNodeID}')
+
+    # create node labels
+    @circles.append('text')
+      .attr('text-anchor', 'middle')
+      .attr(         'dy', '.3em')
+      .attr(      'style', (d) => d.textStyle or $this.config.node_text_style)
+      .attr(  'collapsed', 'false')
+      .text(       (d) =>  d.DOMNodeName or d.text or '')
+
+    # circle expand transitions
+    @circles.selectAll('circle').transition().duration(2000)
+      .attr('r', (d) -> d.radius or $this.config.node_radius)
+
+  # run a force layout
+  # Extended
+  start_ex: () =>
+    @force = d3.layout.force()
+      .nodes(@nodes)
+      .links(@links)
+      .linkDistance(@link_distance)
+      .size([@width, @height])
+
+
+  # respond to zoom level
+  # Extended
+  zooming_ex: () =>
+    return
+
+
+  # Create the visual elements for the tree components
+  # Uses D3.js for visualization
+  ###
   visualize: () =>
     @visualization = d3.select("#vis").append("svg")
       .attr("width", @width)
@@ -139,12 +338,13 @@ class XMLSchema
     @circles.append("text")
       .attr("text-anchor", "middle")
       .attr("dy", ".3em")
-      .attr("style", "display:none")
+      .attr("style", "")
       .attr("collapsed", "false")
       .text((d) => d.DOMNodeName)
 
     @circles.selectAll("circle").transition().duration(2000)
-      .attr("r", (d) -> 15)
+      .attr("r", (d) -> 30)
+  ###
 
   # Fix node so it is free from force
   dragstart: (data, i, element) =>
@@ -190,6 +390,7 @@ class XMLSchema
     @force = d3.layout.force()
       .nodes(@nodes)
       .links(@links)
+      .linkDistance(80)
       .size([@width, @height])
 
   display_group_all: () =>
@@ -399,5 +600,5 @@ $ ->
   root.display_all = () =>
     chart.display_group_all()
 
-  d3.xml "data/FB-RAW-02-20-13.xml", render_vis
+  d3.xml "data/FB-RAW-3.xml", render_vis
 
