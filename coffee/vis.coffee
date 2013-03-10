@@ -104,27 +104,37 @@ class XMLSchema
       'locale': 'ENUM{en_US,en_GB}',
       'uid': 'Integer',
       'DOMNodeName': 'person',
+      'fill': '#FFC900',
+      'stroke': '#BFA130',
+      'radius': 40,
       'children': [],
-      '_children': []
+      '_children': [],
+      'cx': @center.x,
+      'cy': @center.y
     }
 
     photos = {
       'DOMNodeName': 'photos',
+      'focus': 1,
       'children': [],
       '_children': []
     }
 
     posts = {
       'DOMNodeName': 'posts',
+      'focus': 1,
       'children': [],
       '_children': []
     }
 
     statuses = {
       'DOMNodeName': 'statuses',
+      'focus': 2,
       'children': [],
       '_children': []
     }
+
+    @link_distance = 80
 
     person.children.push(photos)
     person.children.push(posts)
@@ -138,6 +148,11 @@ class XMLSchema
     @links.push({'source': person,'target': photos})
     @links.push({'source': person,'target': posts})
     @links.push({'source': person,'target': statuses})
+
+    # default focus is center
+    @foci.push({x: @center.x - 200, y: @center.y})
+    @foci.push({x: @center.x + 200, y: @center.y})
+    @foci.push({x: @center.x, y: @center.y + 200})
 
     @visualize_ex()
   # Builds schema structure 
@@ -253,6 +268,7 @@ class XMLSchema
       .attr('text-anchor', 'middle')
       .attr(         'dy', '.3em')
       .attr(      'style', (d) => d.textStyle or $this.config.node_text_style)
+      .attr(      'focus', (d) => d.focus or 0)
       .attr(  'collapsed', 'false')
       .text(       (d) =>  d.DOMNodeName or d.text or '')
 
@@ -275,6 +291,32 @@ class XMLSchema
   zooming_ex: () =>
     return
 
+  # Replaces display_group_all
+  # Supports multi-focus layout
+  
+  layout: () =>
+    @force.gravity(@layout_gravity)
+      .charge(@charge)
+      .friction(.9)
+      .on 'tick', (e) =>
+        @circles.selectAll("circle").each(@move_towards_focus(e.alpha))
+          .attr("cx", (d) -> d.x)
+          .attr("cy", (d) -> d.y)
+        @circles.selectAll("text").each(@move_towards_focus(e.alpha))
+          .attr("x", (d) -> d.x)
+          .attr("y", (d) -> d.y)
+        @lines.attr("x1", (d) -> d.source.x)
+          .attr("y1", (d) -> d.source.y)
+          .attr("x2", (d) -> d.target.x)
+          .attr("y2", (d) -> d.target.y)
+    
+    @force.start()    
+
+  # Move node or text toward its focus
+  move_towards_focus: (alpha) =>
+    (d) =>
+      d.x = d.x + (@foci[d.focus or 0].x - d.x) * (@damper + 0.02) * alpha
+      d.y = d.y + (@foci[d.focus or 0].y - d.y) * (@damper + 0.02) * alpha
 
   # Create the visual elements for the tree components
   # Uses D3.js for visualization
@@ -433,10 +475,12 @@ class XMLSchema
     if d3.select(element).attr("collapsed") == "false"
       d3.select(element).select("circle").attr("stroke", "black")
 
+    hidden  = ['children', '_children', 'x', 'y', 'px', 'cx', 'cy', 'DOMNodeName',
+                'y', 'py', 'index', 'fixed', 'fill', 'stroke', 'strokeWidth','radius']
+
     content = "<table>"
     for key, value of data
-      unless key == "children" || key == "_children" || key == "x" || 
-      key == "px" || key == "y" || key == "py" || key == "index"
+      if hidden.indexOf(key) == -1
         content += "<tr><td><span class=\"name\">#{key}</span></td>" + 
           "<td><span class=\"value\"> #{value}</span></td></tr>"
 
@@ -478,23 +522,34 @@ class XMLSchema
 
     # Show details in properties panel
     content = "<table class=\"attr-table\">" # fix this
+    hidden  = ['children', '_children', 'x', 'y', 'px', 'cx', 'cy', 'DOMNodeName',
+                'y', 'py', 'index', 'fixed', 'fill', 'stroke', 'strokeWidth','radius']
+    
     for key, value of data
-      unless key == "children" || key == "_children" || key == "x" || key == "px" ||
-       key == "y" || key == "py" || key == "index" || key == "fixed"
-        content += "<tr><td><img src=\"/img/pin-icon.png\" class=\"pin\" width=\"16\" \" />&nbsp;<span class=\"name\">#{key}</span></td>" + 
+      if hidden.indexOf(key) == -1
+        content += "<tr><td><input type=\"checkbox\" id=\"check_#{key}\" />&nbsp;<span class=\"name\">#{key}</span></td>" + 
           "<td><span class=\"pinnable\"> #{value}</span></td></tr>"
 
     content += "</table>"
 
-    d3.selectAll("#prop_panel").html(content)
-    d3.selectAll(".pin").on("click", (d,i) -> that.pin(d,i,this))
+    d3.selectAll("#prop_meta").html(content)
+    $('#prop_panel').fadeIn()
+    $('#prop_meta input').on('click', () ->
+      checked = $(this).prop('checked')
+      if checked
+        $(this).parent().parent().addClass('selected')
+      else
+        $(this).parent().parent().removeClass('selected')
+    )
+    #d3.selectAll(".pin").on("click", (d,i) -> that.pin(d,i,this))
 
   # Remove node from 'focus'
   clear_selection: (data, i, element) =>
     @lines.attr("style", "opacity:.2")
     @focused_node.attr("r", 15) if @focused_node?
     @focused_node = null
-    d3.selectAll("#prop_panel").html("")
+    d3.selectAll("#prop_meta").html("")
+    $('#prop_panel').fadeOut()
   
 
   # Extra functionality through key shortcuts
@@ -595,10 +650,10 @@ $ ->
 
   render_vis = (xml) ->
     chart = new XMLSchema xml
-    chart.start()
+    chart.start_ex()
     root.display_all()
   root.display_all = () =>
-    chart.display_group_all()
+    chart.layout()
 
   d3.xml "data/FB-RAW-3.xml", render_vis
 
