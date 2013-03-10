@@ -62,14 +62,23 @@ footer {
   background: rgba(240,240,240,.6);
 }
 
+.attr-table tr.selected {
+  color: white;
+  background-color: #0088cc;
+}
+
 .prop_panel {
+  display: none;
   position: absolute;
   top: 20px;
   right: 50px;
+  font-size: 13px;
+}
+
+.prop_panel > div {
   padding: 10px;
   border-radius: 5px;
   background: rgba(255,255,255,.7);
-  font-size: 13px;
 }
 
 .prop_panel .pinnable:hover {
