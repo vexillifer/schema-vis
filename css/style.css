@@ -89,6 +89,10 @@ footer {
   font-weight:bold;
 }
 
+#prop_ctrl .btn {
+  width: 200px;
+}
+
 .prop_panel .pin {
   /*opacity:0.1;*/
 }
