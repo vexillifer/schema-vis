@@ -1,6 +1,8 @@
 # Explores and visualizes XML data, schema agnostic
 # Melsa Smith, Aug 2012
 
+# TODO: Multiple foci tests, clustering tests.
+
 counter = 0
 
 class XMLSchema
@@ -11,7 +13,7 @@ class XMLSchema
       node_fill: '#8b9dc3',
       node_stroke: '#3b5998',
       node_stroke_width: 2,
-      node_radius: 30,
+      node_radius: 15,
       node_text_style: '',
       line_stroke_width: 5,
       line_stroke: 'black',
@@ -115,21 +117,21 @@ class XMLSchema
 
     photos = {
       'DOMNodeName': 'photos',
-      'focus': 1,
+      'focus': 0,
       'children': [],
       '_children': []
     }
 
     posts = {
       'DOMNodeName': 'posts',
-      'focus': 1,
+      'focus': 0,
       'children': [],
       '_children': []
     }
 
     statuses = {
       'DOMNodeName': 'statuses',
-      'focus': 2,
+      'focus': 0,
       'children': [],
       '_children': []
     }
@@ -150,9 +152,10 @@ class XMLSchema
     @links.push({'source': person,'target': statuses})
 
     # default focus is center
-    @foci.push({x: @center.x - 200, y: @center.y})
-    @foci.push({x: @center.x + 200, y: @center.y})
-    @foci.push({x: @center.x, y: @center.y + 200})
+    @foci.push(@center)
+    #@foci.push({x: @center.x - 200, y: @center.y})
+    #@foci.push({x: @center.x + 200, y: @center.y})
+    #@foci.push({x: @center.x, y: @center.y + 200})
 
     @visualize_ex()
   # Builds schema structure 
@@ -295,9 +298,7 @@ class XMLSchema
   # Supports multi-focus layout
   
   layout: () =>
-    @force.gravity(@layout_gravity)
-      .charge(@charge)
-      .friction(.9)
+    @force.gravity(0).charge(-500)
       .on 'tick', (e) =>
         @circles.selectAll("circle").each(@move_towards_focus(e.alpha))
           .attr("cx", (d) -> d.x)
