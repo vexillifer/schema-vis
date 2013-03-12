@@ -36,6 +36,7 @@ class XMLSchema
     @links  = []
     @foci   = []
     @link_distance = 80
+    @display = null
 
     # network data
     @people = []
@@ -57,7 +58,7 @@ class XMLSchema
 
     if @data.firstChild.nodeName == 'network'
       @explore_network(@data)
-      @viz_default()
+      #@viz_default()
     else
       #@explore_data @data, {}
       #@visualize()
@@ -86,14 +87,16 @@ class XMLSchema
       @index[copy.name] = copy 
       @people.push(copy)
 
-  viz_reset: () =>
+  reset: () =>
     @nodes.length = 0
     @foci.length  = 0
     @links.length = 0
     @link_distance = 80
+    @display = null
+    $('#svg_vis').remove()
 
-  viz_default: () =>
-    @viz_reset()
+  display_default: (zoom) =>
+    @reset()
 
     # Show a summary of a person
     posts = {}
@@ -118,6 +121,7 @@ class XMLSchema
     photos = {
       'DOMNodeName': 'photos',
       'focus': 0,
+      'radius': 30,
       'children': [],
       '_children': []
     }
@@ -125,6 +129,7 @@ class XMLSchema
     posts = {
       'DOMNodeName': 'posts',
       'focus': 0,
+      'radius': 25,
       'children': [],
       '_children': []
     }
@@ -132,6 +137,7 @@ class XMLSchema
     statuses = {
       'DOMNodeName': 'statuses',
       'focus': 0,
+      'radius': 30,
       'children': [],
       '_children': []
     }
@@ -157,7 +163,88 @@ class XMLSchema
     #@foci.push({x: @center.x + 200, y: @center.y})
     #@foci.push({x: @center.x, y: @center.y + 200})
 
-    @visualize_ex()
+    @run()
+
+  display_refs: (zoom) =>
+    @reset()
+
+    max = 50
+    cur = 0
+
+    for person in @people
+      if cur >= max
+        break
+      @nodes.push(person)
+      cur++
+
+    # create some links
+    for i in [0..@nodes.length - 1]
+      dex = Math.floor(Math.random()*@nodes.length)
+      if dex != i
+        link = {
+          'source': @nodes[i],
+          'target': @nodes[dex]
+        }
+        #console.log(@nodes[i].name + ' -> ' + @nodes[dex].name)
+        @links.push($.extend({}, link))
+
+    @foci.push(@center)
+
+    @run()
+
+  display_struct: (zoom) =>
+    # this is intended to group by other labelled edges
+    # we really only know about friendships, but 
+    # other edges could exist (family, friends, classmates)
+
+  display_attr: (zoom) =>
+    # cluster on selected attributes
+    @reset()
+
+    ###
+    max = 50
+    cur = 0
+
+    for i in [0..max - 1]
+      person = $.extend({}, @people[i])
+      person.fill = if i % 2 == 0  then 'red' else @config.node_fill 
+      person.stroke = if i % 2 == 0 then 'darkred' else @config.node_stroke
+      person.focus = if i % 2 == 0 then 1 else 0
+      person.text = ''
+      #person.DOMNodeName = ''
+      #console.log(person)
+      @nodes.push($.extend({}, person))
+    ###
+    @nodes.push({
+      'radius': 100,
+      'text': 'locale: en_US',
+      'focus': 1,
+      'fill': 'red',
+      'stroke': 'darkred'
+    })
+
+    @nodes.push({
+      'radius': 80,
+      'text': 'locale: en_GB',
+      'focus': 0
+    })
+
+    @links.push({
+      'target': @nodes[0],
+      'source': @nodes[1]
+    })
+
+    @link_distance = 300
+
+    @foci.push({x: @center.x - window.innerWidth/8, y: @center.y})
+    @foci.push({x: @center.x + window.innerWidth/8, y: @center.y})
+
+    @run()
+    
+  run: () =>
+    @render()
+    @start()
+    @layout()
   # Builds schema structure 
   # Method: Creates a node for parent element and recurse through 
   # children and siblings. Uses prevID to create links from child -> parent
@@ -208,7 +295,8 @@ class XMLSchema
   # Extended to support per-node properties:
   # stroke, strokeWidth, fill, text, textStyle, radius 
   ###
-  visualize_ex: () =>
+  render: () =>
+
     @visualization = d3.select('#vis').append('svg')
       .attr( 'width', @width)
       .attr('height', @height)
@@ -264,6 +352,8 @@ class XMLSchema
       .attr('stroke-width', (d,i) => d.strokeWidth or $this.config.node_stroke_width)
       .attr(      'stroke', (d,i) => d.stroke or $this.config.node_stroke)
       .attr(   'collapsed', 'false')
+      .attr(          'cx', (d, i) => d.cx or $this.center.x)
+      .attr(          'cy', (d, i) => d.cy or $this.center.y)
       .attr(          'id', (d) -> 'bubble_#{d.DOMNodeID}')
 
     # create node labels
@@ -276,23 +366,18 @@ class XMLSchema
       .text(       (d) =>  d.DOMNodeName or d.text or '')
 
     # circle expand transitions
-    @circles.selectAll('circle').transition().duration(2000)
+    @circles.selectAll('circle').transition().duration(500)
       .attr('r', (d) -> d.radius or $this.config.node_radius)
 
   # run a force layout
   # Extended
-  start_ex: () =>
+  start: () =>
     @force = d3.layout.force()
       .nodes(@nodes)
       .links(@links)
       .linkDistance(@link_distance)
       .size([@width, @height])
 
-
-  # respond to zoom level
-  # Extended
-  zooming_ex: () =>
-    return
 
   # Replaces display_group_all
   # Supports multi-focus layout
@@ -410,6 +495,10 @@ class XMLSchema
       @lines.attr("transform", "scale(" + d3.event.scale + ") " +
         "translate(" + d3.event.translate + ")")
 
+      # call the current visualization engine with the new zoom level
+      #@display(d3.event.scale)
+
+      ###
       zoom_current_tier = d3.event.scale
       # if zoomed in, show the node labels
       if d3.event.scale > @zoom_max * @zoom_show_labels
@@ -423,19 +512,22 @@ class XMLSchema
             d3.select(@).attr("style", "opacity:.5"))
       else
         d3.selectAll("text").attr("style", "display:none")
+      ###
 
   # Uses D3.js gravity layout
   charge: (d) -> 
     -500
     # -Math.pow(@radius, 2.0) / 8
 
+  ###
   start: () =>
     @force = d3.layout.force()
       .nodes(@nodes)
       .links(@links)
       .linkDistance(80)
       .size([@width, @height])
-
+  ###
+  ###
   display_group_all: () =>
     @force.gravity(@layout_gravity)
       .charge(@charge)
@@ -453,7 +545,8 @@ class XMLSchema
           .attr("y2", (d) -> d.target.y)
 
     @force.start()    
-
+  ###
+  ###
   move_towards_center: (alpha) =>
     (d) =>
       d.x = d.x + (@center.x - d.x) * (@damper + 0.02) * alpha
@@ -469,7 +562,7 @@ class XMLSchema
     #   .attr("dx", 12)
     #   .attr("dy", ".35em")
     # console.log node
-
+  ###
   # Node hover tool tip
   show_details: (data, i, element) =>
     # Emphasis hovered node
@@ -651,10 +744,14 @@ $ ->
 
   render_vis = (xml) ->
     chart = new XMLSchema xml
-    chart.start_ex()
+    #chart.start_ex()
     root.display_all()
+    $('#viz1_btn').click(() => chart.display_refs())
+    $('#viz2_btn').click(() => chart.display_struct())
+    $('#viz3_btn').click(() => chart.display_attr())
+
   root.display_all = () =>
-    chart.layout()
+    chart.display_default()
 
   d3.xml "data/FB-RAW-3.xml", render_vis
 
