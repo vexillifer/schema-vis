@@ -35,6 +35,7 @@ class XMLSchema
     @nodes  = []
     @links  = []
     @foci   = []
+    @charge = -30
     @link_distance = 80
     @display = null
 
@@ -107,9 +108,11 @@ class XMLSchema
     @reset()
 
     for person in @people
-      person.radius = 10
+      person.radius = 5
       person.text = ''
       person.DOMNodeName = ''
+      person.x = @center.x
+      person.y = @center.y
       @nodes.push(person)
 
     for connection in @connections
@@ -225,27 +228,34 @@ class XMLSchema
     # cluster on selected attributes
     @reset()
 
-    ###
-    max = 50
-    cur = 0
+    #max = 50
+    #cur = 0
     c0 = []
     c1 = []
 
-    for i in [0..max - 1]
-      person = $.extend({}, @people[i])
+    find_person = (name, a) =>
+      for p in a
+        if p.name == name
+          return true
+      return false
+
+
+    for i in [0..@people.length - 1]
+      person = @people[i]
       person.fill = if i % 2 == 0  then 'red' else @config.node_fill 
       person.stroke = if i % 2 == 0 then 'darkred' else @config.node_stroke
       person.focus = if i % 2 == 0 then 1 else 0
       person.text = ''
-      node = $.extend({}, person)
+      person.DOMNodeName = ''
+      person.radius = 5
       if i % 2 == 0
-        c0.push(node)
+        c0.push(person)
       else
-        c1.push(node)
-      @nodes.push(node)
+        c1.push(person)
+      @nodes.push(person)
 
     # generate some links in each cloud
-
+    ###
     for i in [0..c0.length - 1]
       dex = Math.floor(Math.random()*c0.length)
       link = {
@@ -261,6 +271,15 @@ class XMLSchema
         'target': c1[dex]
       }
       @links.push($.extend({}, link))
+    ###
+
+    for connection in @connections
+      if (find_person(connection[0], c0) and find_person(connection[1], c0)) or (find_person(connection[0], c1) and find_person(connection[1], c1))
+        link = {
+          source: @index[connection[0]]
+          target: @index[connection[1]]
+        }
+        @links.push(link)
 
     ###
     @nodes.push({
@@ -277,18 +296,41 @@ class XMLSchema
       'focus': 0
     })
 
-    ###
+
     @links.push({
       'target': @nodes[0],
       'source': @nodes[1]
     })
-    ###
+  
 
     @link_distance = 300
-  
+    ###
 
     @foci.push({x: @center.x - window.innerWidth/8, y: @center.y})
     @foci.push({x: @center.x + window.innerWidth/8, y: @center.y})
+
+    @run()
+
+  display_quad: () =>
+    @reset()
+
+    colors = ['red','green','pink','blue']
+
+    for i in [0..@people.length - 1]
+      quad = Math.floor(Math.random()*4)
+      person = @people[i]
+      person.focus = quad
+      person.stroke = 'black'
+      person.fill = colors[quad]
+      person.text = ''
+      person.DOMNodeName = ''
+      person.radius = 10
+      @nodes.push(person)
+
+    @foci.push({x: @center.x - window.innerWidth/8, y: @center.y - window.innerWidth/8})
+    @foci.push({x: @center.x - window.innerWidth/8, y: @center.y + window.innerWidth/8})
+    @foci.push({x: @center.x + window.innerWidth/8, y: @center.y - window.innerWidth/8})
+    @foci.push({x: @center.x + window.innerWidth/8, y: @center.y + window.innerWidth/8})
 
     @run()
     
@@ -391,6 +433,8 @@ class XMLSchema
       .data(@nodes, (d) -> d.DomParentID)
       .enter().append('g')      
       .attr('class',   'node')
+      .attr('x', (d,i) -> $this.center.x)
+      .attr('y', (d,i) -> $this.center.y)
       .on('mouseover', (d,i) -> $this.show_details(d,i,this))
       .on( 'mouseout', (d,i) -> $this.hide_details(d,i,this))
       .on(    'click', (d,i) -> $this.select_node(d,i,this))
@@ -403,8 +447,8 @@ class XMLSchema
       .attr('stroke-width', (d,i) => d.strokeWidth or $this.config.node_stroke_width)
       .attr(      'stroke', (d,i) => d.stroke or $this.config.node_stroke)
       .attr(   'collapsed', 'false')
-      .attr(          'cx', (d, i) => d.cx or $this.center.x)
-      .attr(          'cy', (d, i) => d.cy or $this.center.y)
+      .attr(          'x', (d, i) => d.x or $this.center.x)
+      .attr(          'y', (d, i) => d.x or $this.center.y)
       .attr(          'id', (d) -> 'bubble_#{d.DOMNodeID}')
 
     # create node labels
@@ -426,6 +470,7 @@ class XMLSchema
     @force = d3.layout.force()
       .nodes(@nodes)
       .links(@links)
+      .charge(@charge)
       .linkDistance(@link_distance)
       .size([@width, @height])
 
@@ -798,7 +843,7 @@ $ ->
     #chart.start_ex()
     root.display_all()
     $('#viz1_btn').click(() => chart.display_refs())
-    $('#viz2_btn').click(() => chart.display_struct())
+    $('#viz2_btn').click(() => chart.display_quad())
     $('#viz3_btn').click(() => chart.display_attr())
 
   root.display_all = () =>
