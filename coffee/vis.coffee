@@ -15,9 +15,9 @@ class XMLSchema
       node_stroke_width: 2,
       node_radius: 15,
       node_text_style: '',
-      line_stroke_width: 5,
-      line_stroke: 'black',
-      line_stroke_opacity: .2
+      line_stroke_width: 1,
+      line_stroke: '#aaaaaa',
+      line_stroke_opacity: 1
     }
 
     @width = window.innerWidth
@@ -40,6 +40,7 @@ class XMLSchema
 
     # network data
     @people = []
+    @connections = []
     @index  = {}
 
     @circles = null
@@ -72,6 +73,7 @@ class XMLSchema
     attrs = ['uid','name','sex','locale']
 
     people = network.firstChild.querySelectorAll('person')
+    connections = network.firstChild.querySelectorAll('connection')
 
     for person in people
       node = {}
@@ -87,6 +89,12 @@ class XMLSchema
       @index[copy.name] = copy 
       @people.push(copy)
 
+    for connection in connections
+      uid1 = connection.querySelector('uid1').firstChild.nodeValue
+      uid2 = connection.querySelector('uid2').firstChild.nodeValue
+      @connections.push([uid1, uid2])
+
+
   reset: () =>
     @nodes.length = 0
     @foci.length  = 0
@@ -98,7 +106,22 @@ class XMLSchema
   display_default: (zoom) =>
     @reset()
 
+    for person in @people
+      person.radius = 10
+      person.text = ''
+      person.DOMNodeName = ''
+      @nodes.push(person)
+
+    for connection in @connections
+      link = {
+        source: @index[connection[0]]
+        target: @index[connection[1]]
+      }
+      @links.push(link)
+
+    @foci.push(@center)
     # Show a summary of a person
+    ###
     posts = {}
     photos = {}
     statuses = {}
@@ -162,6 +185,7 @@ class XMLSchema
     #@foci.push({x: @center.x - 200, y: @center.y})
     #@foci.push({x: @center.x + 200, y: @center.y})
     #@foci.push({x: @center.x, y: @center.y + 200})
+    ###
 
     @run()
 
@@ -204,6 +228,8 @@ class XMLSchema
     ###
     max = 50
     cur = 0
+    c0 = []
+    c1 = []
 
     for i in [0..max - 1]
       person = $.extend({}, @people[i])
@@ -211,9 +237,31 @@ class XMLSchema
       person.stroke = if i % 2 == 0 then 'darkred' else @config.node_stroke
       person.focus = if i % 2 == 0 then 1 else 0
       person.text = ''
-      #person.DOMNodeName = ''
-      #console.log(person)
-      @nodes.push($.extend({}, person))
+      node = $.extend({}, person)
+      if i % 2 == 0
+        c0.push(node)
+      else
+        c1.push(node)
+      @nodes.push(node)
+
+    # generate some links in each cloud
+
+    for i in [0..c0.length - 1]
+      dex = Math.floor(Math.random()*c0.length)
+      link = {
+        'source': c0[i],
+        'target': c0[dex]
+      }
+      @links.push($.extend({}, link))
+
+    for i in [0..c1.length - 1]
+      dex = Math.floor(Math.random()*c1.length)
+      link = {
+        'source': c1[i],
+        'target': c1[dex]
+      }
+      @links.push($.extend({}, link))
+
     ###
     @nodes.push({
       'radius': 100,
@@ -229,12 +277,15 @@ class XMLSchema
       'focus': 0
     })
 
+    ###
     @links.push({
       'target': @nodes[0],
       'source': @nodes[1]
     })
+    ###
 
     @link_distance = 300
+  
 
     @foci.push({x: @center.x - window.innerWidth/8, y: @center.y})
     @foci.push({x: @center.x + window.innerWidth/8, y: @center.y})
