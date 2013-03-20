@@ -7,17 +7,20 @@ counter = 0
 
 class XMLSchema
   constructor: (data) ->
-    
+
     # default vis style settings
     @config = {
       node_fill: '#8b9dc3',
       node_stroke: '#3b5998',
       node_stroke_width: 2,
-      node_radius: 15,
+      node_radius: 5,
       node_text_style: '',
       line_stroke_width: 1,
       line_stroke: '#aaaaaa',
-      line_stroke_opacity: 1
+      line_stroke_opacity: 1,
+      # performance otions
+      static_load: 0,
+      expand_circles_on_entry: false
     }
 
     @width = window.innerWidth
@@ -35,7 +38,7 @@ class XMLSchema
     @nodes  = []
     @links  = []
     @foci   = []
-    @charge = -30
+    @charge = -500
     @link_distance = 80
     @display = null
 
@@ -49,7 +52,7 @@ class XMLSchema
 
     @tooltip = CustomTooltip("node_tooltip", 240)
     @center = {x: @width / 2, y: @height / 2}
-    @layout_gravity = -.2
+    @layout_gravity = 0.1
     @damper = 0.1
     @force = null
     @node_drag = null
@@ -87,7 +90,7 @@ class XMLSchema
           node[attr.nodeName] = attr.firstChild.nodeValue
       copy = $.extend({}, node)
       copy.DOMNodeName = copy.name
-      @index[copy.name] = copy 
+      @index[copy.name] = copy
       @people.push(copy)
 
     for connection in connections
@@ -100,19 +103,25 @@ class XMLSchema
     @nodes.length = 0
     @foci.length  = 0
     @links.length = 0
-    @link_distance = 80
     @display = null
     $('#svg_vis').remove()
 
   display_default: (zoom) =>
     @reset()
 
-    for person in @people
+    # variables for putting the nodes in a circle
+    circleConst = 2*Math.PI/@people.length;
+    halfWidth = @width/2;
+    halfHeight = @height/2;
+
+    for person, i in @people
       person.radius = 5
       person.text = ''
       person.DOMNodeName = ''
-      person.x = @center.x
-      person.y = @center.y
+      person.x = @center.x+(halfWidth)*Math.cos(circleConst*i);
+      person.y = @center.y+(halfHeight)*Math.sin(circleConst*i);
+      person.px = person.x
+      person.py = person.y
       @nodes.push(person)
 
     for connection in @connections
@@ -221,7 +230,7 @@ class XMLSchema
 
   display_struct: (zoom) =>
     # this is intended to group by other labelled edges
-    # we really only know about friendships, but 
+    # we really only know about friendships, but
     # other edges could exist (family, friends, classmates)
 
   display_attr: (zoom) =>
@@ -242,12 +251,12 @@ class XMLSchema
 
     for i in [0..@people.length - 1]
       person = @people[i]
-      person.fill = if i % 2 == 0  then 'red' else @config.node_fill 
+      person.fill = if i % 2 == 0  then 'red' else @config.node_fill
       person.stroke = if i % 2 == 0 then 'darkred' else @config.node_stroke
       person.focus = if i % 2 == 0 then 1 else 0
       person.text = ''
       person.DOMNodeName = ''
-      person.radius = 5
+      person.radius = @config.node_radius
       if i % 2 == 0
         c0.push(person)
       else
@@ -301,7 +310,7 @@ class XMLSchema
       'target': @nodes[0],
       'source': @nodes[1]
     })
-  
+
 
     @link_distance = 300
     ###
@@ -333,13 +342,13 @@ class XMLSchema
     @foci.push({x: @center.x + window.innerWidth/8, y: @center.y + window.innerWidth/8})
 
     @run()
-    
+
   run: () =>
     @render()
     @start()
     @layout()
-  # Builds schema structure 
-  # Method: Creates a node for parent element and recurse through 
+  # Builds schema structure
+  # Method: Creates a node for parent element and recurse through
   # children and siblings. Uses prevID to create links from child -> parent
   ###
   explore_data: (parent, prevNode) =>
@@ -360,7 +369,7 @@ class XMLSchema
         node["children"] = []
         node["_children"] = []
 
-      # Add element's attributes added as node meta data 
+      # Add element's attributes added as node meta data
       attributes = parent.attributes
       if attributes? && attributes.length != 0
         for index in [0..attributes.length-1]
@@ -380,13 +389,13 @@ class XMLSchema
       @explore_data firstChild, node if firstChild?
 
       # Add next sibling
-      sibling = parent.nextSibling 
-      @explore_data sibling, prevNode if sibling? 
+      sibling = parent.nextSibling
+      @explore_data sibling, prevNode if sibling?
 
   # Create the visual elements for the tree components
   # Uses D3.js for visualization
   # Extended to support per-node properties:
-  # stroke, strokeWidth, fill, text, textStyle, radius 
+  # stroke, strokeWidth, fill, text, textStyle, radius
   ###
   render: () =>
 
@@ -397,7 +406,7 @@ class XMLSchema
 
     $this = this
 
-    d3.select(window).on('keydown', (d,i) -> $this.key_stroke_ex())
+    d3.select(window).on('keydown', (d,i) -> $this.key_stroke())
 
     @node_drag = d3.behavior.drag()
       .on('drag',      (d,i) -> $this.dragmove(d,i,this))
@@ -407,13 +416,13 @@ class XMLSchema
     @zoom = d3.behavior.zoom()
       .on('zoom', (d,i) -> $this.zooming(d,i))
       .scaleExtent([@zoom_min, @zoom_max])
-    
+
     @visualization.call(@zoom)
 
     # build up the SVG
     @visualization.append("rect")
-      .attr( 'width', '100%') 
-      .attr('height', '100%') 
+      .attr( 'width', '100%')
+      .attr('height', '100%')
       .attr( 'style', 'opacity:.1') # rect is black by default??
 
     # create links
@@ -430,8 +439,8 @@ class XMLSchema
 
     # create svg nodes for circles/labels
     @circles = @visualization.selectAll('g.node')
-      .data(@nodes, (d) -> d.DomParentID)
-      .enter().append('g')      
+      .data(@nodes)
+      .enter().append('g')
       .attr('class',   'node')
       .attr('x', (d,i) -> $this.center.x)
       .attr('y', (d,i) -> $this.center.y)
@@ -440,16 +449,17 @@ class XMLSchema
       .on(    'click', (d,i) -> $this.select_node(d,i,this))
       .call(@node_drag)
 
-    # create node circles 
+    # create node circles
     @circles.append('circle')
-      .attr('r', 0)
+      .attr(           'r', if @config.expand_circles_on_entry then 0 else (d) -> d.radius or $this.config.node_radius)
       .attr(        'fill', (d,i) => d.fill or $this.config.node_fill)
       .attr('stroke-width', (d,i) => d.strokeWidth or $this.config.node_stroke_width)
       .attr(      'stroke', (d,i) => d.stroke or $this.config.node_stroke)
       .attr(   'collapsed', 'false')
-      .attr(          'x', (d, i) => d.x or $this.center.x)
-      .attr(          'y', (d, i) => d.x or $this.center.y)
+      .attr(           'x', (d, i) => d.x or $this.center.x)
+      .attr(           'y', (d, i) => d.x or $this.center.y)
       .attr(          'id', (d) -> 'bubble_#{d.DOMNodeID}')
+
 
     # create node labels
     @circles.append('text')
@@ -461,8 +471,9 @@ class XMLSchema
       .text(       (d) =>  d.DOMNodeName or d.text or '')
 
     # circle expand transitions
-    @circles.selectAll('circle').transition().duration(500)
-      .attr('r', (d) -> d.radius or $this.config.node_radius)
+    if @config.expand_circles_on_entry
+      @circles.selectAll('circle').transition().duration(500)
+        .attr('r', (d) -> d.radius or $this.config.node_radius)
 
   # run a force layout
   # Extended
@@ -471,15 +482,18 @@ class XMLSchema
       .nodes(@nodes)
       .links(@links)
       .charge(@charge)
+      .gravity(@layout_gravity)
       .linkDistance(@link_distance)
       .size([@width, @height])
 
 
   # Replaces display_group_all
   # Supports multi-focus layout
-  
+
   layout: () =>
-    @force.gravity(0).charge(-500)
+    width = @width
+    height = @height
+    @force
       .on 'tick', (e) =>
         @circles.selectAll("circle").each(@move_towards_focus(e.alpha))
           .attr("cx", (d) -> d.x)
@@ -491,8 +505,19 @@ class XMLSchema
           .attr("y1", (d) -> d.source.y)
           .attr("x2", (d) -> d.target.x)
           .attr("y2", (d) -> d.target.y)
-    
-    @force.start()    
+
+
+    $("#loader").show();
+    @force.start()
+
+    # run through the first 100 ticks without drawing.
+    if @config.static_load
+      # move it along
+      for i in [1..@config.static_load]
+        @force.tick()
+      @force.stop();
+
+    $("#loader").hide();
 
   # Move node or text toward its focus
   move_towards_focus: (alpha) =>
@@ -525,8 +550,8 @@ class XMLSchema
     @visualization.call(@zoom)
 
     @visualization.append("rect")
-      .attr("width", "100%") 
-      .attr("height", "100%") 
+      .attr("width", "100%")
+      .attr("height", "100%")
       .attr("style", "opacity:.1")
 
     # Add lines as an under layer
@@ -544,7 +569,7 @@ class XMLSchema
     # Create a node element to append the svg circle and label
     @circles = @visualization.selectAll("g.node")
       .data(@nodes, (d) -> d.DomParentID)
-      .enter().append("g")      
+      .enter().append("g")
       .attr("class", "node")
       .on("mouseover", (d,i) -> that.show_details(d,i,this))
       .on("mouseout", (d,i) -> that.hide_details(d,i,this))
@@ -586,10 +611,16 @@ class XMLSchema
   # Apply custom zoom function: as zoom occurs, show node names
   zooming: (data, i) =>
     if d3.event?
+      # maintain stroke widths to make zoom more useful.
       @circles.attr("transform", "scale(" + d3.event.scale + ") " +
         "translate(" + d3.event.translate + ")")
+        .selectAll("circle")
+          .attr("stroke-width", if d3.event.scale > 1 then @config.node_stroke_width/d3.event.scale else @config.node_stroke_width)
+          .attr("r", (d) -> if d3.event.scale > 1 then d.radius/d3.event.scale else d.radius)
+
       @lines.attr("transform", "scale(" + d3.event.scale + ") " +
         "translate(" + d3.event.translate + ")")
+        .attr("stroke-width", if d3.event.scale > 1 then @config.line_stroke_width/d3.event.scale else @config.line_stroke_width)
 
       # call the current visualization engine with the new zoom level
       #@display(d3.event.scale)
@@ -598,11 +629,11 @@ class XMLSchema
       zoom_current_tier = d3.event.scale
       # if zoomed in, show the node labels
       if d3.event.scale > @zoom_max * @zoom_show_labels
-        d3.selectAll("text").each((d, i) -> 
+        d3.selectAll("text").each((d, i) ->
           if d3.select(@).attr("collapsed") == "false"
             d3.select(@).attr("style", ""))
       else if d3.event.scale > @zoom_max * @zoom_hint_labels
-        d3.selectAll("text").each((d, i) -> 
+        d3.selectAll("text").each((d, i) ->
           d3.select(@).attr("collapsed")
           if d3.select(@).attr("collapsed") == "false"
             d3.select(@).attr("style", "opacity:.5"))
@@ -611,8 +642,8 @@ class XMLSchema
       ###
 
   # Uses D3.js gravity layout
-  charge: (d) -> 
-    -500
+  #charge: (d) ->
+  #  -500
     # -Math.pow(@radius, 2.0) / 8
 
   ###
@@ -640,14 +671,14 @@ class XMLSchema
           .attr("x2", (d) -> d.target.x)
           .attr("y2", (d) -> d.target.y)
 
-    @force.start()    
+    @force.start()
   ###
   ###
   move_towards_center: (alpha) =>
     (d) =>
       d.x = d.x + (@center.x - d.x) * (@damper + 0.02) * alpha
       d.y = d.y + (@center.y - d.y) * (@damper + 0.02) * alpha
-  
+
   pin: (data, i, element) =>
     key = element.parentNode.previousSibling.innerHTML
     @label_node(@focused_node, @focused_node_data[key])
@@ -671,7 +702,7 @@ class XMLSchema
     content = "<table>"
     for key, value of data
       if hidden.indexOf(key) == -1
-        content += "<tr><td><span class=\"name\">#{key}</span></td>" + 
+        content += "<tr><td><span class=\"name\">#{key}</span></td>" +
           "<td><span class=\"value\"> #{value}</span></td></tr>"
 
     content += "</table>"
@@ -693,13 +724,13 @@ class XMLSchema
     if @focused_node_data?
       focused_node_id = @focused_node_data.DOMNodeID
     else focused_node_id = null
-    @lines.each( (d, i) -> 
+    @lines.each( (d, i) ->
       line = d3.select(@)
       if focused_node_id?
-        if d.source.DOMNodeID == focused_node_id || d.target.DOMNodeID == focused_node_id 
+        if d.source.DOMNodeID == focused_node_id || d.target.DOMNodeID == focused_node_id
           if line.attr("collapsed") == "false"
             line.attr("style", "opacity:.2")
-      if d.source.DOMNodeID == data.DOMNodeID || d.target.DOMNodeID == data.DOMNodeID 
+      if d.source.DOMNodeID == data.DOMNodeID || d.target.DOMNodeID == data.DOMNodeID
         if line.attr("collapsed") == "false"
           line.attr("style", "opacity:.7"))
 
@@ -714,10 +745,10 @@ class XMLSchema
     content = "<table class=\"attr-table\">" # fix this
     hidden  = ['children', '_children', 'x', 'y', 'px', 'cx', 'cy', 'DOMNodeName',
                 'y', 'py', 'index', 'fixed', 'fill', 'stroke', 'strokeWidth','radius']
-    
+
     for key, value of data
       if hidden.indexOf(key) == -1
-        content += "<tr><td><input type=\"checkbox\" id=\"check_#{key}\" />&nbsp;<span class=\"name\">#{key}</span></td>" + 
+        content += "<tr><td><input type=\"checkbox\" id=\"check_#{key}\" />&nbsp;<span class=\"name\">#{key}</span></td>" +
           "<td><span class=\"pinnable\"> #{value}</span></td></tr>"
 
     content += "</table>"
@@ -740,7 +771,7 @@ class XMLSchema
     @focused_node = null
     d3.selectAll("#prop_meta").html("")
     $('#prop_panel').fadeOut()
-  
+
 
   # Extra functionality through key shortcuts
   key_stroke: () =>
@@ -782,14 +813,14 @@ class XMLSchema
           d3.select(@).select("text")
             .attr("style", "display:none")
             .attr("collapsed", "true"))
-      @lines.each( (d, i) -> 
+      @lines.each( (d, i) ->
         if d.target.DOMNodeID == node.DOMNodeID
           d3.select(@)
             .attr("style", "display:none")
             .attr("collapsed", "true"))
 
   # Recurse through children and show those nodes in the vis
-  show_children: (children) =>      
+  show_children: (children) =>
     parent = false
     unless children?
       parent = true
@@ -818,9 +849,9 @@ class XMLSchema
             text.attr("style", "")
           else if that.zoom_current_tier > @zoom_max * @zoom_hint_labels
             text.attr("style", "opacity:.5")
-          else 
+          else
             text.attr("style", "opacity:0"))
-      @lines.each( (d, i) -> 
+      @lines.each( (d, i) ->
         if d.target.DOMNodeID == node.DOMNodeID
           if parent
             d3.select(@)

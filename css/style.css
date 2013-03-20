@@ -99,3 +99,17 @@ footer {
 .prop_panel .pin:hover {
   /*opacity:1;*/
 }
+
+
+/* temporary loading style */
+#loader {
+  
+  background: rgba(0,0,0,.3);
+  color: #fff;
+  position: absolute;
+  left: 400px;
+  top: 12px;
+  padding: 10px;
+  border-radius: 4px;
+
+}
