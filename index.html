@@ -17,26 +17,24 @@
 
 </head>
 <body>
+  <button class="btn" id="debug_btn1">Debug1</button> <!-- TODO remove this -->
   <div id="logo"><span><b>Schema</b> Explorer</span></div>
   <div id="loader">Loading...</div>
   <div id="vis"></div>
   <div id="prop_panel" class="prop_panel">
+    <div id="prop_ctrl" align="center">
+      <button class="btn" id="viz1_btn">Raw Data</button><br /><br />
+      <button class="btn" id="viz2_btn">Community Detection</button><br /><br />
+      <button class="btn" id="viz3_btn">Group by Attribute</button><br />
+    </div>
+    <div id="cluster_detail">
+      <button class="btn btn-primary" id="reset_btn">Reset</button><br /><br />
+    </div>
     <div id="prop_meta">
 
     </div>
     <br />
-    <div id="prop_ctrl" align="center">
-      <button class="btn btn-primary"><i class="icon-shareable"></i> K-Snap</button><br /><br />
-      <select style="width:200px">
-        <option>Heuristic 1</option>
-        <option>Heuristic 1</option>
-        <option>Heuristic 3</option>
-      </select>
-      <br /><br />
-      <button class="btn" id="viz1_btn">Graph References</button><br /><br />
-      <button class="btn" id="viz2_btn">Group Structural</button><br /><br />
-      <button class="btn" id="viz3_btn">Group Attributes</button><br />
-    </div>
+
   </div>
 
   <!--
@@ -55,7 +53,7 @@
   -->
 
   <script>window.jQuery || document.write('<script src="lib/jquery-1.7.2.min.js"><\/script>')</script>
-
+  <script src="lib/underscore-min.js"></script>
   <script src="lib/CustomTooltip.js"></script>
   <script src="lib/coffee-script.js"></script>
   <script src="lib/d3.v3.js"></script>

@@ -51,7 +51,8 @@ footer {
 }
 
 .attr-table {
-
+  table-layout: fixed;
+  width: 200px;
 }
 
 .attr-table td{
@@ -79,6 +80,7 @@ footer {
   padding: 10px;
   border-radius: 5px;
   background: rgba(255,255,255,.7);
+  margin-bottom: 20px;
 }
 
 .prop_panel .pinnable:hover {
@@ -89,7 +91,7 @@ footer {
   font-weight:bold;
 }
 
-#prop_ctrl .btn {
+.prop_panel .btn {
   width: 200px;
 }
 
@@ -103,7 +105,7 @@ footer {
 
 /* temporary loading style */
 #loader {
-  
+
   background: rgba(0,0,0,.3);
   color: #fff;
   position: absolute;
@@ -112,4 +114,8 @@ footer {
   padding: 10px;
   border-radius: 4px;
 
+}
+
+#debug_btn1 {
+  position: absolute; bottom: 0; left: 0;
 }

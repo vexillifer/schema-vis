@@ -1,9 +1,6 @@
 # Explores and visualizes XML data, schema agnostic
 # Melsa Smith, Aug 2012
-
-# TODO: Multiple foci tests, clustering tests.
-
-counter = 0
+# Peter Beshai, March 2013
 
 class XMLSchema
   constructor: (data) ->
@@ -18,9 +15,17 @@ class XMLSchema
       line_stroke_width: 1,
       line_stroke: '#aaaaaa',
       line_stroke_opacity: 1,
+      show_foci: true,
+
+      cluster_radius_factor: 4
+      cluster_radius_offset: 5
+
       # performance otions
       static_load: 0,
-      expand_circles_on_entry: false
+      expand_circles_on_entry: false,
+      node_limit: 300,
+      tick_limit: 100,
+      cluster_expand: "alone" # current settings are "inplace" or "alone"
     }
 
     @width = window.innerWidth
@@ -28,19 +33,20 @@ class XMLSchema
     @data = data
 
     @zoom_min = .5
-    @zoom_max = 2
+    @zoom_max = 4
     @zoom_show_labels = 7/8
     @zoom_hint_labels = 3/4
     zoom_current_tier = 1
 
     # these parameters completely
     # specify a visualization
+    @visibility_map = [] # index maps to node idx, true or false value whether node is visible
     @nodes  = []
     @links  = []
     @foci   = []
     @charge = -500
-    @link_distance = 80
-    @display = null
+    @link_distance = 100
+    @layout_gravity = 0.1
 
     # network data
     @people = []
@@ -52,11 +58,11 @@ class XMLSchema
 
     @tooltip = CustomTooltip("node_tooltip", 240)
     @center = {x: @width / 2, y: @height / 2}
-    @layout_gravity = 0.1
     @damper = 0.1
     @force = null
     @node_drag = null
     @zoom = null
+    @tick_count = 0
 
     @focused_node = null
     @focused_node_data = null
@@ -79,7 +85,9 @@ class XMLSchema
     people = network.firstChild.querySelectorAll('person')
     connections = network.firstChild.querySelectorAll('connection')
 
-    for person in people
+
+    for person, i in people
+      if @config.node_limit? and i > @config.node_limit then break
       node = {}
       for attr in person.childNodes
         # look for attribute-esque children
@@ -90,8 +98,11 @@ class XMLSchema
           node[attr.nodeName] = attr.firstChild.nodeValue
       copy = $.extend({}, node)
       copy.DOMNodeName = copy.name
+
+      copy.idx = i
       @index[copy.name] = copy
       @people.push(copy)
+
 
     for connection in connections
       uid1 = connection.querySelector('uid1').firstChild.nodeValue
@@ -100,305 +111,163 @@ class XMLSchema
 
 
   reset: () =>
+    @force?.stop()
     @nodes.length = 0
     @foci.length  = 0
     @links.length = 0
-    @display = null
     $('#svg_vis').remove()
+    @tick_count = 0
+    @tooltip.hideTooltip()
 
-  display_default: (zoom) =>
+
+  filter: (node_list) =>
+    @visibility_map.length = 0
+    if node_list?
+      for node_idx in node_list
+        @visibility_map[node_idx] = true
+
+  # filter node list is an array of nodes that are visible, typically the contents of a cluster
+  # if empty, all of @people is used
+  display: (filter_node_list) =>
+    console.log "display()";
     @reset()
+    @foci.push @center
 
-    # variables for putting the nodes in a circle
-    circleConst = 2*Math.PI/@people.length;
-    halfWidth = @width/2;
-    halfHeight = @height/2;
+    # entire node list will be @people
+    nodes = @people
 
-    for person, i in @people
-      person.radius = 5
-      person.text = ''
-      person.DOMNodeName = ''
-      person.x = @center.x+(halfWidth)*Math.cos(circleConst*i);
-      person.y = @center.y+(halfHeight)*Math.sin(circleConst*i);
-      person.px = person.x
-      person.py = person.y
-      @nodes.push(person)
+    # setup the visibility map
+    this.filter(filter_node_list)
 
-    for connection in @connections
-      link = {
-        source: @index[connection[0]]
-        target: @index[connection[1]]
-      }
-      @links.push(link)
-
-    @foci.push(@center)
-    # Show a summary of a person
-    ###
-    posts = {}
-    photos = {}
-    statuses = {}
-
-    person = {
-      'name': 'String',
-      'sex': 'ENUM{male,female}',
-      'locale': 'ENUM{en_US,en_GB}',
-      'uid': 'Integer',
-      'DOMNodeName': 'person',
-      'fill': '#FFC900',
-      'stroke': '#BFA130',
-      'radius': 40,
-      'children': [],
-      '_children': [],
-      'cx': @center.x,
-      'cy': @center.y
-    }
-
-    photos = {
-      'DOMNodeName': 'photos',
-      'focus': 0,
-      'radius': 30,
-      'children': [],
-      '_children': []
-    }
-
-    posts = {
-      'DOMNodeName': 'posts',
-      'focus': 0,
-      'radius': 25,
-      'children': [],
-      '_children': []
-    }
-
-    statuses = {
-      'DOMNodeName': 'statuses',
-      'focus': 0,
-      'radius': 30,
-      'children': [],
-      '_children': []
-    }
-
-    @link_distance = 80
-
-    person.children.push(photos)
-    person.children.push(posts)
-    person.children.push(statuses)
-
-    @nodes.push(person)
-    @nodes.push(photos)
-    @nodes.push(posts)
-    @nodes.push(statuses)
-
-    @links.push({'source': person,'target': photos})
-    @links.push({'source': person,'target': posts})
-    @links.push({'source': person,'target': statuses})
-
-    # default focus is center
-    @foci.push(@center)
-    #@foci.push({x: @center.x - 200, y: @center.y})
-    #@foci.push({x: @center.x + 200, y: @center.y})
-    #@foci.push({x: @center.x, y: @center.y + 200})
-    ###
-
-    @run()
-
-  display_refs: (zoom) =>
-    @reset()
-
-    max = 50
-    cur = 0
-
-    for person in @people
-      if cur >= max
-        break
-      @nodes.push(person)
-      cur++
-
-    # create some links
-    for i in [0..@nodes.length - 1]
-      dex = Math.floor(Math.random()*@nodes.length)
-      if dex != i
-        link = {
-          'source': @nodes[i],
-          'target': @nodes[dex]
-        }
-        #console.log(@nodes[i].name + ' -> ' + @nodes[dex].name)
-        @links.push($.extend({}, link))
-
-    @foci.push(@center)
-
-    @run()
-
-  display_struct: (zoom) =>
-    # this is intended to group by other labelled edges
-    # we really only know about friendships, but
-    # other edges could exist (family, friends, classmates)
-
-  display_attr: (zoom) =>
-    # cluster on selected attributes
-    @reset()
-
-    #max = 50
-    #cur = 0
-    c0 = []
-    c1 = []
-
-    find_person = (name, a) =>
-      for p in a
-        if p.name == name
-          return true
+    # checks if we filtered at all... kind of a lazy way of defaulting to true unless a list is specified,
+    # in which case, we default to false. probably not a good idea in the long run.
+    is_node_visible = (node) =>
+      if node?
+        return filter_node_list == undefined or (filter_node_list? and @visibility_map[node.idx] == true)
       return false
 
+    # circle_x/y: gives the x/y coordinate, positioning items in a circle
+    # width/height: half the width/height of the circle
+    # circle_const is of the form 2*Math.PI/num_items and i is in [0..num_items-1]
+    circle_x = (width, circle_const, i) =>
+      @center.x + width * Math.cos(i * circle_const)
 
-    for i in [0..@people.length - 1]
-      person = @people[i]
-      person.fill = if i % 2 == 0  then 'red' else @config.node_fill
-      person.stroke = if i % 2 == 0 then 'darkred' else @config.node_stroke
-      person.focus = if i % 2 == 0 then 1 else 0
-      person.text = ''
-      person.DOMNodeName = ''
-      person.radius = @config.node_radius
-      if i % 2 == 0
-        c0.push(person)
-      else
-        c1.push(person)
-      @nodes.push(person)
+    circle_y = (height, circle_const, i) =>
+      @center.y + height * Math.sin(i * circle_const)
 
-    # generate some links in each cloud
-    ###
-    for i in [0..c0.length - 1]
-      dex = Math.floor(Math.random()*c0.length)
-      link = {
-        'source': c0[i],
-        'target': c0[dex]
-      }
-      @links.push($.extend({}, link))
+    # variables for putting the nodes in a circle
+    circle_const = 2*Math.PI/nodes.length;
+    half_width = @width/2;
+    half_height = @height/2;
 
-    for i in [0..c1.length - 1]
-      dex = Math.floor(Math.random()*c1.length)
-      link = {
-        'source': c1[i],
-        'target': c1[dex]
-      }
-      @links.push($.extend({}, link))
-    ###
+    # build up set of nodes
+    for node, i in nodes
+      if is_node_visible node
+        node.radius = @config.node_radius
+        node.text = ''
+        node.DOMNodeName = ''
+        node.x = circle_x(half_width, circle_const, i)
+        node.y = circle_y(half_height, circle_const, i)
+        node.px = node.x
+        node.py = node.y
 
+        @nodes.push node
+
+    # build up set of links
     for connection in @connections
-      if (find_person(connection[0], c0) and find_person(connection[1], c0)) or (find_person(connection[0], c1) and find_person(connection[1], c1))
+      source = @index[connection[0]]
+      target = @index[connection[1]]
+
+      if source? and target? and (is_node_visible source) and (is_node_visible target) and source != target
         link = {
-          source: @index[connection[0]]
-          target: @index[connection[1]]
+          source: source
+          target: target
         }
-        @links.push(link)
-
-    ###
-    @nodes.push({
-      'radius': 100,
-      'text': 'locale: en_US',
-      'focus': 1,
-      'fill': 'red',
-      'stroke': 'darkred'
-    })
-
-    @nodes.push({
-      'radius': 80,
-      'text': 'locale: en_GB',
-      'focus': 0
-    })
+        @links.push link
 
 
-    @links.push({
-      'target': @nodes[0],
-      'source': @nodes[1]
-    })
+    # we have nodes and edges, now apply clustering.
+    # TODO: remove this. temporarily only get clusters if no filtering.
+    if filter_node_list == undefined
+      clusters = this.get_clusters(@nodes, @links)
+    else
+      clusters = []
+
+    # create node to cluster map (node.idx -> cluster index)
+    node_cluster_map = {}
+    for cluster, cluster_index in clusters
+      for node_idx in cluster
+        node_cluster_map[node_idx] = cluster_index
+
+    # remove nodes that are in clusters
+    @nodes = _.filter(@nodes, (node) -> node_cluster_map[node.idx] == undefined)
+
+    # create cluster nodes
+    # variables for putting the nodes in a circle
+    cluster_circle_const = 2*Math.PI/clusters.length;
+    foci_width = @width/4
+    foci_height = @height/4
+    cluster_nodes = []
+
+    # initialize clustered nodes
+    for cluster, i in clusters
+        cluster_nodes[i] = {
+          radius: @config.cluster_radius_factor * Math.sqrt(cluster.length) + @config.cluster_radius_offset,
+          text: cluster.length,
+          x: circle_x(half_width, cluster_circle_const, i),
+          y: circle_y(half_height, cluster_circle_const, i)
+          cluster: true,
+          nodes: cluster, # the array of node idx that this cluster contains
+          focus: i+1 # +1 since 0 is center
+        }
+        cluster_nodes[i].px = cluster_nodes[i].x
+        cluster_nodes[i].py = cluster_nodes[i].y
+
+        @nodes.push(cluster_nodes[i])
+
+        @foci.push({
+          x: circle_x(foci_width, cluster_circle_const, i),
+          y: circle_y(foci_width, cluster_circle_const, i)
+        })
 
 
-    @link_distance = 300
-    ###
+    # update links to point to clusters
+    for link in @links
+      source_cluster = node_cluster_map[link.source.idx]
+      target_cluster = node_cluster_map[link.target.idx]
 
-    @foci.push({x: @center.x - window.innerWidth/8, y: @center.y})
-    @foci.push({x: @center.x + window.innerWidth/8, y: @center.y})
+      if source_cluster?
+        link.source = cluster_nodes[source_cluster]
+
+      if target_cluster?
+        link.target = cluster_nodes[target_cluster]
+
+    # remove self links
+    @links = _.filter(@links, (link) -> link.source != link.target)
 
     @run()
 
-  display_quad: () =>
-    @reset()
-
-    colors = ['red','green','pink','blue']
-
-    for i in [0..@people.length - 1]
-      quad = Math.floor(Math.random()*4)
-      person = @people[i]
-      person.focus = quad
-      person.stroke = 'black'
-      person.fill = colors[quad]
-      person.text = ''
-      person.DOMNodeName = ''
-      person.radius = 10
-      @nodes.push(person)
-
-    @foci.push({x: @center.x - window.innerWidth/8, y: @center.y - window.innerWidth/8})
-    @foci.push({x: @center.x - window.innerWidth/8, y: @center.y + window.innerWidth/8})
-    @foci.push({x: @center.x + window.innerWidth/8, y: @center.y - window.innerWidth/8})
-    @foci.push({x: @center.x + window.innerWidth/8, y: @center.y + window.innerWidth/8})
-
-    @run()
+  # TODO: this should be smart one day.
+  get_clusters: (nodes, links) =>
+    if nodes.length > 20
+      return [
+        [7,12,14,16,45,54,62,66,74,82,86,89,90,97,101,105,112,113,114,120,155,157,160,161,164,171,173,186,187,192,194,205,208,210,215,216,217,221,232,233,234,236,241,258,259,260,261,264,269,272],
+        [13,15,17,18,20,21,22,23,24,25,27,28,29,30,31,32,34,35,36,37,38,39,40,42,43,44,46,48,51,53,55,58,60,68,69,70,71,72,75,76,77,78,79,80,85,91,95,96,98,99,100,102,106,107,108,109,110,116,117,119,122,123,124,125,126,127,128,129,130,132,133,134,138,139,149,151,153,156,158,159,170,178,179,181,182,185,191,202,203,207,213,220,222,227,242,243,244,245,246,247,248,249,250,251,252,253,254,255,257,262,266,267,268,271]
+      ]
+    else if nodes.length > 10
+      return [
+        [ 0, 1, 2, 3 ],
+        [ 4, 5, 6 ],
+        [ 7, 8 ]
+      ]
+    return []
 
   run: () =>
     @render()
     @start()
     @layout()
-  # Builds schema structure
-  # Method: Creates a node for parent element and recurse through
-  # children and siblings. Uses prevID to create links from child -> parent
-  ###
-  explore_data: (parent, prevNode) =>
-    node = {}
-    link = {}
 
-    # Arbitrary limit to visualization size, replace with summarization
-    unless counter > 75
-
-      # if parent.nodeType == 3
-      #   if parent.data.length not 0
-      #     console.log parent.data
-
-      # Set node's identifying features, for the visualization's context
-      if parent.nodeType == 1
-        node["DOMNodeID"] = counter++
-        node["DOMNodeName"] = parent.nodeName
-        node["children"] = []
-        node["_children"] = []
-
-      # Add element's attributes added as node meta data
-      attributes = parent.attributes
-      if attributes? && attributes.length != 0
-        for index in [0..attributes.length-1]
-          attr = attributes.item(index)
-          node["#{attr.nodeName}"] = attr.nodeValue
-      @nodes.push node unless jQuery.isEmptyObject(node)
-
-      # Add PC links
-      if not jQuery.isEmptyObject(prevNode) && not jQuery.isEmptyObject(node)
-        link["source"] = prevNode
-        link["target"] = node
-        prevNode["children"].push node
-      @links.push link unless jQuery.isEmptyObject(link)
-
-      # Add first child node
-      firstChild = parent.firstChild
-      @explore_data firstChild, node if firstChild?
-
-      # Add next sibling
-      sibling = parent.nextSibling
-      @explore_data sibling, prevNode if sibling?
-
-  # Create the visual elements for the tree components
-  # Uses D3.js for visualization
-  # Extended to support per-node properties:
-  # stroke, strokeWidth, fill, text, textStyle, radius
-  ###
   render: () =>
-
     @visualization = d3.select('#vis').append('svg')
       .attr( 'width', @width)
       .attr('height', @height)
@@ -425,13 +294,30 @@ class XMLSchema
       .attr('height', '100%')
       .attr( 'style', 'opacity:.1') # rect is black by default??
 
+
+    # draw foci as circles if configured
+    if @config.show_foci
+       @visualization.selectAll('circle.focus')
+        .data(@foci)
+        .enter().append("circle")
+        .attr(           'r', 20)
+        .attr(        'fill', "#222")
+        .attr('stroke-width', 6)
+        .attr(      'stroke', "#600")
+        .attr(          'cx', (d, i) -> d.x)
+        .attr(          'cy', (d, i) -> d.y)
+        .attr(       'class', 'focus')
+        .attr(          'id', (d, i) -> 'focus_'+i)
+        .style('opacity', .2)
+
+
     # create links
     @lines = @visualization.selectAll('line.link')
       .data(@links)
       .enter().append('svg:line')
       .attr('stroke-width', (d) -> d.strokeWidth or $this.config.line_stroke_width)
       .attr(      'stroke', (d) -> d.stroke or $this.config.line_stroke)
-      .attr(       'class', 'link')
+      .attr(       'class', (d) -> if d.cluster_link then "link cluster_link" else "link")
       .attr(      'source', (d) -> d.source)
       .attr(      'target', (d) -> d.target)
       .attr(   'collapsed', (d) -> d.collapsed or 'false')
@@ -441,12 +327,13 @@ class XMLSchema
     @circles = @visualization.selectAll('g.node')
       .data(@nodes)
       .enter().append('g')
-      .attr('class',   'node')
-      .attr('x', (d,i) -> $this.center.x)
-      .attr('y', (d,i) -> $this.center.y)
+      .attr('class',   (d) -> if d.cluster then "node cluster" else "node")
+      .attr('x', (d,i) -> d.x or $this.center.x)
+      .attr('y', (d,i) -> d.y or $this.center.y)
       .on('mouseover', (d,i) -> $this.show_details(d,i,this))
       .on( 'mouseout', (d,i) -> $this.hide_details(d,i,this))
       .on(    'click', (d,i) -> $this.select_node(d,i,this))
+      #.on(    'click', (d,i) -> $this.mark_node(d,i,this)) TODO mark
       .call(@node_drag)
 
     # create node circles
@@ -456,9 +343,9 @@ class XMLSchema
       .attr('stroke-width', (d,i) => d.strokeWidth or $this.config.node_stroke_width)
       .attr(      'stroke', (d,i) => d.stroke or $this.config.node_stroke)
       .attr(   'collapsed', 'false')
-      .attr(           'x', (d, i) => d.x or $this.center.x)
-      .attr(           'y', (d, i) => d.x or $this.center.y)
-      .attr(          'id', (d) -> 'bubble_#{d.DOMNodeID}')
+      .attr(           'cx', (d, i) => d.x or $this.center.x)
+      .attr(           'cy', (d, i) => d.y or $this.center.y)
+      .attr(           'id', (d, i) -> 'bubble_'+i)
 
 
     # create node labels
@@ -478,12 +365,14 @@ class XMLSchema
   # run a force layout
   # Extended
   start: () =>
+
     @force = d3.layout.force()
       .nodes(@nodes)
       .links(@links)
       .charge(@charge)
       .gravity(@layout_gravity)
-      .linkDistance(@link_distance)
+      .linkDistance((d) => (d.source.radius + d.target.radius)/2 + @link_distance)
+      .linkStrength((d) => if d.cluster_link then 0.1 else 1)
       .size([@width, @height])
 
 
@@ -493,9 +382,11 @@ class XMLSchema
   layout: () =>
     width = @width
     height = @height
+
     @force
       .on 'tick', (e) =>
-        @circles.selectAll("circle").each(@move_towards_focus(e.alpha))
+        @circles.selectAll("circle")
+          .each(@move_towards_focus(e.alpha))
           .attr("cx", (d) -> d.x)
           .attr("cy", (d) -> d.y)
         @circles.selectAll("text").each(@move_towards_focus(e.alpha))
@@ -506,6 +397,12 @@ class XMLSchema
           .attr("x2", (d) -> d.target.x)
           .attr("y2", (d) -> d.target.y)
 
+        # allow for limiting ticks to prevent endless wandering
+        @tick_count++
+        if @tick_count > @config.tick_limit
+          console.log "tick limit "+@config.tick_limit+" reached"
+          @tick_count = 0
+          @force.stop()
 
     $("#loader").show();
     @force.start()
@@ -525,76 +422,6 @@ class XMLSchema
       d.x = d.x + (@foci[d.focus or 0].x - d.x) * (@damper + 0.02) * alpha
       d.y = d.y + (@foci[d.focus or 0].y - d.y) * (@damper + 0.02) * alpha
 
-  # Create the visual elements for the tree components
-  # Uses D3.js for visualization
-  ###
-  visualize: () =>
-    @visualization = d3.select("#vis").append("svg")
-      .attr("width", @width)
-      .attr("height", @height)
-      .attr("id", "svg_vis")
-
-    that = this
-
-    d3.select(window).on("keydown", (d,i) -> that.key_stroke())
-
-    # Define drag and zoom behaviours
-    @node_drag = d3.behavior.drag()
-      .on("dragstart", (d,i) -> that.dragstart(d,i,this))
-      .on("drag", (d,i) -> that.dragmove(d,i,this))
-      .on("dragend", (d,i) -> that.dragend(d,i,this))
-
-    @zoom = d3.behavior.zoom()
-      .on("zoom", (d,i) -> that.zooming(d,i))
-      .scaleExtent([@zoom_min, @zoom_max])
-    @visualization.call(@zoom)
-
-    @visualization.append("rect")
-      .attr("width", "100%")
-      .attr("height", "100%")
-      .attr("style", "opacity:.1")
-
-    # Add lines as an under layer
-    @lines = @visualization.selectAll("line.link")
-      .data(@links)
-      .enter().append("svg:line")
-      .attr("stroke-width", (d) -> 5)
-      .attr("stroke", "black")
-      .attr("class", "link")
-      .attr("source", (d) -> d.source)
-      .attr("target", (d) -> d.target)
-      .attr("collapsed", "false")
-      .style(opacity: .2)
-
-    # Create a node element to append the svg circle and label
-    @circles = @visualization.selectAll("g.node")
-      .data(@nodes, (d) -> d.DomParentID)
-      .enter().append("g")
-      .attr("class", "node")
-      .on("mouseover", (d,i) -> that.show_details(d,i,this))
-      .on("mouseout", (d,i) -> that.hide_details(d,i,this))
-      .on("click", (d,i) -> that.select_node(d,i,this))
-      .call(@node_drag)
-
-    @circles.append("circle")
-      .attr("r", 0)
-      .attr("fill", (d) => "#8b9dc3")
-      .attr("stroke-width", 2)
-      .attr("stroke", (d) => "#3b5998")
-      .attr("collapsed", "false")
-      .attr("id", (d) -> "bubble_#{d.DOMNodeID}")
-
-    @circles.append("text")
-      .attr("text-anchor", "middle")
-      .attr("dy", ".3em")
-      .attr("style", "")
-      .attr("collapsed", "false")
-      .text((d) => d.DOMNodeName)
-
-    @circles.selectAll("circle").transition().duration(2000)
-      .attr("r", (d) -> 30)
-  ###
-
   # Fix node so it is free from force
   dragstart: (data, i, element) =>
     data.fixed = true
@@ -612,84 +439,17 @@ class XMLSchema
   zooming: (data, i) =>
     if d3.event?
       # maintain stroke widths to make zoom more useful.
-      @circles.attr("transform", "scale(" + d3.event.scale + ") " +
-        "translate(" + d3.event.translate + ")")
+      @circles.attr("transform", "translate(" + d3.event.translate + ") " +
+        "scale(" + d3.event.scale + ")")
         .selectAll("circle")
           .attr("stroke-width", if d3.event.scale > 1 then @config.node_stroke_width/d3.event.scale else @config.node_stroke_width)
           .attr("r", (d) -> if d3.event.scale > 1 then d.radius/d3.event.scale else d.radius)
 
-      @lines.attr("transform", "scale(" + d3.event.scale + ") " +
-        "translate(" + d3.event.translate + ")")
+      @lines.attr("transform", "translate(" + d3.event.translate + ") " +
+        "scale(" + d3.event.scale + ")")
         .attr("stroke-width", if d3.event.scale > 1 then @config.line_stroke_width/d3.event.scale else @config.line_stroke_width)
 
-      # call the current visualization engine with the new zoom level
-      #@display(d3.event.scale)
 
-      ###
-      zoom_current_tier = d3.event.scale
-      # if zoomed in, show the node labels
-      if d3.event.scale > @zoom_max * @zoom_show_labels
-        d3.selectAll("text").each((d, i) ->
-          if d3.select(@).attr("collapsed") == "false"
-            d3.select(@).attr("style", ""))
-      else if d3.event.scale > @zoom_max * @zoom_hint_labels
-        d3.selectAll("text").each((d, i) ->
-          d3.select(@).attr("collapsed")
-          if d3.select(@).attr("collapsed") == "false"
-            d3.select(@).attr("style", "opacity:.5"))
-      else
-        d3.selectAll("text").attr("style", "display:none")
-      ###
-
-  # Uses D3.js gravity layout
-  #charge: (d) ->
-  #  -500
-    # -Math.pow(@radius, 2.0) / 8
-
-  ###
-  start: () =>
-    @force = d3.layout.force()
-      .nodes(@nodes)
-      .links(@links)
-      .linkDistance(80)
-      .size([@width, @height])
-  ###
-  ###
-  display_group_all: () =>
-    @force.gravity(@layout_gravity)
-      .charge(@charge)
-      .friction(.9)
-      .on "tick", (e) =>
-        @circles.selectAll("circle").each(@move_towards_center(e.alpha))
-          .attr("cx", (d) -> d.x)
-          .attr("cy", (d) -> d.y)
-        @circles.selectAll("text").each(@move_towards_center(e.alpha))
-          .attr("x", (d) -> d.x)
-          .attr("y", (d) -> d.y)
-        @lines.attr("x1", (d) -> d.source.x)
-          .attr("y1", (d) -> d.source.y)
-          .attr("x2", (d) -> d.target.x)
-          .attr("y2", (d) -> d.target.y)
-
-    @force.start()
-  ###
-  ###
-  move_towards_center: (alpha) =>
-    (d) =>
-      d.x = d.x + (@center.x - d.x) * (@damper + 0.02) * alpha
-      d.y = d.y + (@center.y - d.y) * (@damper + 0.02) * alpha
-
-  pin: (data, i, element) =>
-    key = element.parentNode.previousSibling.innerHTML
-    @label_node(@focused_node, @focused_node_data[key])
-
-  label_node: (node, value) =>
-    # node.append("text")
-    #   .text(value)
-    #   .attr("dx", 12)
-    #   .attr("dy", ".35em")
-    # console.log node
-  ###
   # Node hover tool tip
   show_details: (data, i, element) =>
     # Emphasis hovered node
@@ -714,11 +474,32 @@ class XMLSchema
       d3.select(element).select("circle").attr("stroke", (d) => "#d84b2a")
     @tooltip.hideTooltip()
 
+  # mouse click listener that marks a node
+  mark_node: (data, i, element) =>
+    console.log(data, i, element);
+    $circle = $(element).find("circle");
+    if $circle.attr("marked")
+      $circle.removeAttr("marked").attr("fill", @config.node_fill)
+    else
+      $circle.attr("marked", true).attr("fill", "red").attr("idx", data.idx)
+
+    @force.stop()
+
+  # for building cluster array
+  output_marked_nodes: () =>
+    console.log $.makeArray($("circle[marked]").map(() -> parseInt(this.attributes.idx.value))).join()
+
   # Make the selected node 'focused'
   # Apply style and show meta data
   select_node: (data, i, element) =>
+    # TODO temporarily mark the node
+    this.mark_node data, i, element
+
     # create that to preserve this within d3 select each call
     that = this
+
+    # make the damn thing stop moving when something is clicked.
+    @force.stop()
 
     # Emphasis adjacent lines
     if @focused_node_data?
@@ -762,7 +543,10 @@ class XMLSchema
       else
         $(this).parent().parent().removeClass('selected')
     )
-    #d3.selectAll(".pin").on("click", (d,i) -> that.pin(d,i,this))
+
+    if data.cluster
+      console.log "CLUSTER!", data
+      this.display(data.nodes)
 
   # Remove node from 'focus'
   clear_selection: (data, i, element) =>
@@ -783,7 +567,7 @@ class XMLSchema
           if d.DOMNodeName == node_name
             console.log node_name
         )
-      if (d3.event.keyCode == 67)
+      else if (d3.event.keyCode == 67)
         # Show or hide children (key: 'C')
         if @focused_node_data?
           if @focused_node_data.children.length isnt 0
@@ -873,12 +657,10 @@ $ ->
     chart = new XMLSchema xml
     #chart.start_ex()
     root.display_all()
-    $('#viz1_btn').click(() => chart.display_refs())
-    $('#viz2_btn').click(() => chart.display_quad())
-    $('#viz3_btn').click(() => chart.display_attr())
-
+    $("#debug_btn1").click(() => chart.display())
+    $("#reset_btn").click(() => chart.display())
   root.display_all = () =>
-    chart.display_default()
+    chart.display()
 
   d3.xml "data/FB-RAW-3.xml", render_vis
 
