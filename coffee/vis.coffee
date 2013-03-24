@@ -28,6 +28,11 @@ class XMLSchema
       cluster_expand: "alone" # current settings are "inplace" or "alone"
     }
 
+    # The history stack
+    @history = []
+    # The history pointer
+    @history_pos = 0
+
     @width = window.innerWidth
     @height = window.innerHeight
     @data = data
@@ -118,6 +123,37 @@ class XMLSchema
     $('#svg_vis').remove()
     @tick_count = 0
     @tooltip.hideTooltip()
+
+  # Take a snapshot of current state,
+  # push it on to the history stack
+  history_snapshot: () =>
+    frame = {}
+    frame.label = ""
+    frame.nodes = @nodes
+    frame.foci  = @foci
+    frame.links = @links
+    # deep copy the SVG node
+    frame.svg   = document.getElementById('svg_vis').cloneNode(true)
+    @history.push(frame)
+
+  # Play a history snapshot into 
+  # current state
+  history_go: (i) =>
+    pos = @history_pos + i
+    frame = @history[pos]
+    @nodes = frame.nodes
+    @foci  = frame.foci
+    @links = frame.links
+    svg = document.getElementById('svg_vis')
+    svg.parentNode.replaceChild(frame.svg, svg)
+    # potentially update selector states here...
+
+
+  history_forward: () =>
+    @history_go(1)
+
+  history_back: () =>
+    @history_go(-1)
 
 
   filter: (node_list) =>
