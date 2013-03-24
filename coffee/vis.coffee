@@ -137,8 +137,10 @@ class XMLSchema
     @history.push(frame)
     @history_pos++
     history.pushState({'position': @history_pos}, "", "")
+    console.log('history_snapshot: ', @history, frame)
 
   history_popstate: (e) =>
+    console.log('history_popstate: ', e)
     state = e.state
     @history_go(state.position)
 
@@ -150,8 +152,10 @@ class XMLSchema
     @nodes = frame.nodes
     @foci  = frame.foci
     @links = frame.links
+    @history_pos = pos
     svg = document.getElementById('svg_vis')
     svg.parentNode.replaceChild(frame.svg, svg)
+
     # potentially update selector states here...
 
   # Equivalent to history.forward()
@@ -500,7 +504,7 @@ class XMLSchema
       d3.select(element).select("circle").attr("stroke", "black")
 
     hidden  = ['children', '_children', 'x', 'y', 'px', 'cx', 'cy', 'DOMNodeName',
-                'y', 'py', 'index', 'fixed', 'fill', 'stroke', 'strokeWidth','radius']
+                'y', 'py', 'index', 'fixed', 'fill', 'stroke', 'strokeWidth','radius', 'nodes']
 
     content = "<table>"
     for key, value of data
