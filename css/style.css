@@ -7,6 +7,11 @@ a, a:visited, a:active {
   color: #444;
 }
 
+.pre-scrollable {
+  height: 200px;
+  overflow: scroll;
+}
+
 #vis {
 
 }
@@ -85,6 +90,10 @@ footer {
 
 #prop_ctrl {
   padding-left: 15px;
+}
+
+#prop_meta {
+  display: none;
 }
 
 .prop_panel .pinnable:hover {

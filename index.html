@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html class="no-js" lang="en">
 <head>
 
@@ -38,10 +38,91 @@
     </div>
     
     <div id="prop_meta">
-
+      <div align="center"><h3 id="meta_title"></h3><span id="meta_detail" class="muted"></span></div>
+      <br />
+      <div id="meta_attr"></div>
+      <br />
+      <div align="right">
+        <button class="btn" id="meta_schema" data-toggle="modal" data-target="#schema_modal">Schema...</button>
+      </div>
     </div>
     <br />
 
+  </div>
+
+  <div class="modal hide fade" id="schema_modal">
+    <div class="modal-header">
+      <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+      <h3>Schema Summary</h3>
+    </div>
+    <div class="modal-body">
+      <ul class="nav nav-tabs">
+        <li class="active"><a href="#diagram" data-toggle="tab">Diagram</a></li>
+        <li><a href="#xml" data-toggle="tab">XML</a></li>
+      </ul>
+      <div class="tab-content">
+        <div class="tab-pane active" id="diagram">
+          <div align="center">
+            <img src="img/schema-diagram.png" style="height:200px" />
+          </div>
+        </div>
+        <div class="tab-pane" id="xml">
+<pre id="schema_modal_code" class="pre-scrollable">
+&lt;person&gt;
+&lt;uid&gt;7209385672965&lt;/uid&gt;
+&lt;first_name&gt;Mark&lt;/first_name&gt;
+&lt;middle_name&gt;&lt;/middle_name&gt;
+&lt;last_name&gt;Spear&lt;/last_name&gt;
+&lt;name&gt;Mark Spear&lt;/name&gt;
+&lt;pic_small&gt;http://profile.ak.fbcdn.net/hprofile-ak-prn1&lt;/pic_small&gt;
+&lt;pic_big&gt;http://profile.ak.fbcdn.net/hprofile-ak-prn1&lt;/pic_big&gt;
+&lt;pic_square&gt;http://profile.ak.fbcdn.net/hprofile-ak-prn1&lt;/pic_square&gt;
+&lt;pic&gt;http://profile.ak.fbcdn.net/hprofile-ak-prn1&lt;/pic&gt;
+&lt;affiliations&gt;
+  &lt;affiliations&gt;
+    &lt;nid&gt;16777427&lt;/nid&gt;
+    &lt;name&gt;UBC&lt;/name&gt;
+    &lt;type&gt;college&lt;/type&gt;
+  &lt;/affiliations&gt;
+  &lt;affiliations&gt;
+    &lt;nid&gt;16777228&lt;/nid&gt;
+    &lt;name&gt;Princeton&lt;/name&gt;
+    &lt;type&gt;college&lt;/type&gt;
+  &lt;/affiliations&gt;
+  &lt;affiliations&gt;
+    &lt;nid&gt;16778165&lt;/nid&gt;
+    &lt;name&gt;Dalhousie&lt;/name&gt;
+    &lt;type&gt;college&lt;/type&gt;
+  &lt;/affiliations&gt;
+&lt;/affiliations&gt;
+&lt;profile_update_time&gt;2013-03-02T14:51:19-08:00&lt;/profile_update_time&gt;
+&lt;timezone&gt;&lt;/timezone&gt;
+&lt;religion&gt;&lt;/religion&gt;
+&lt;birthday&gt;&lt;/birthday&gt;
+&lt;birthday_date&gt;&lt;/birthday_date&gt;
+&lt;sex&gt;male&lt;/sex&gt;
+&lt;hometown_location&gt;&lt;/hometown_location&gt;
+&lt;meeting_sex&gt;&lt;/meeting_sex&gt;
+&lt;meeting_for&gt;&lt;/meeting_for&gt;
+&lt;relationship_status&gt;&lt;/relationship_status&gt;
+&lt;significant_other_id&gt;&lt;/significant_other_id&gt;
+&lt;political&gt;&lt;/political&gt;
+&lt;current_location&gt;&lt;/current_location&gt;
+&lt;activities&gt;&lt;/activities&gt;
+&lt;is_app_user&gt;&lt;/is_app_user&gt;
+&lt;locale&gt;en_US&lt;/locale&gt;
+&lt;profile_url&gt;http://www.facebook.com/mspear&lt;/profile_url&gt;
+&lt;website&gt;&lt;/website&gt;
+&lt;contact_email&gt;&lt;/contact_email&gt;
+&lt;email&gt;&lt;/email&gt;
+&lt;/person&gt;
+</pre>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <a class="btn" data-dismiss="modal" href="#">Close</a>
+    </div>
   </div>
 
   <!--
