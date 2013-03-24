@@ -132,40 +132,31 @@ class XMLSchema
     frame.nodes = @nodes
     frame.foci  = @foci
     frame.links = @links
-    # deep copy the SVG node
+    #frame.svg   = $('#vis').html()
     frame.svg   = document.getElementById('svg_vis').cloneNode(true)
+    frame.ts    = Date.now()
     @history.push(frame)
-    @history_pos++
-    history.pushState({'position': @history_pos}, "", "")
-    console.log('history_snapshot: ', @history, frame)
+    history.pushState({'position': @history.length - 1}, "", "")
 
   history_popstate: (e) =>
-    console.log('history_popstate: ', e)
     state = e.state
-    @history_go(state.position)
+    if state
+      @history_go(state.position)
 
   # Play a history snapshot into 
   # current state
   history_go: (i) =>
-    pos = @history_pos + i
-    frame = @history[pos]
+    
+    if i < 0 or i >= @history.length
+      return
+
+    frame = @history[i]
     @nodes = frame.nodes
     @foci  = frame.foci
     @links = frame.links
-    @history_pos = pos
-    svg = document.getElementById('svg_vis')
-    svg.parentNode.replaceChild(frame.svg, svg)
-
-    # potentially update selector states here...
-
-  # Equivalent to history.forward()
-  history_forward: () =>
-    @history_go(1)
-
-  # Equivalent to history.back()
-  history_back: () =>
-    @history_go(-1)
-
+    #$('#vis').html(frame.svg)
+    $('#svg_vis').replaceWith(frame.svg)
+    # potentially update selector states here...?
 
   filter: (node_list) =>
     @visibility_map.length = 0
@@ -293,6 +284,19 @@ class XMLSchema
     @links = _.filter(@links, (link) -> link.source != link.target)
 
     @run()
+
+  # TODO: implement me!
+  display_aggregate: (attr) =>
+    if attr and attr.trim().length != 0
+      @display()
+
+  # TODO: implement me!
+  display_communities: () =>
+    @display()
+
+  # TODO: implement me!
+  display_raw: () =>
+    @display()
 
   # TODO: this should be smart one day.
   get_clusters: (nodes, links) =>
@@ -449,6 +453,9 @@ class XMLSchema
         if @tick_count > @config.tick_limit
           console.log "tick limit "+@config.tick_limit+" reached"
           @tick_count = 0
+          # Snapshot the state save to history
+          @history_snapshot()
+          # Force the layout to stop 
           @force.stop()
 
     $("#loader").show();
@@ -600,6 +607,19 @@ class XMLSchema
 
     $('#meta_schema').unbind('click')
     #$('#meta_schema').click(() => @show_schema(data))
+    
+    $('#aggr_menu a').click(() -> 
+      $('#aggr_menu a').removeAttr('data-selected').css('font-weight','normal')
+      $(this).css('font-weight', 'bold')
+      $(this).attr('data-selected', true)
+      that.display_aggregate($(this).html())
+    )
+
+    # Default attribute to aggregate on is
+    # the first one...
+    $('#aggr_menu > li:first-child a')
+    .css('font-weight', 'bold')
+    .attr('data-selected', true)
 
     if data.cluster
       console.log "CLUSTER!", data
@@ -718,8 +738,17 @@ $ ->
     #chart.start_ex()
     root.display_all()
     $("#debug_btn1").click(() => chart.display())
-    $("#reset_btn").click(() => chart.display())
-    window.onpopstate = (e) => chart.history_popstate(e)
+    $("#reset_btn").click(()  => chart.display())
+    # Raw data
+    $('#viz1_btn').click(()   => chart.display_raw())
+    # Communities
+    $('#viz2_btn').click(()   => chart.display_communities())
+    # Aggregate
+    $('#viz3_btn').click(() => 
+      chart.display_aggregate($('#aggr_menu a[data-selected="true"]').html())
+    )
+    # Back button
+    window.onpopstate = (e)   => chart.history_popstate(e)
   
   root.display_all = () =>
     chart.display()
