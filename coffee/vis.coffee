@@ -135,6 +135,12 @@ class XMLSchema
     # deep copy the SVG node
     frame.svg   = document.getElementById('svg_vis').cloneNode(true)
     @history.push(frame)
+    @history_pos++
+    history.pushState({'position': @history_pos}, "", "")
+
+  history_popstate: (e) =>
+    state = e.state
+    @history_go(state.position)
 
   # Play a history snapshot into 
   # current state
@@ -148,10 +154,11 @@ class XMLSchema
     svg.parentNode.replaceChild(frame.svg, svg)
     # potentially update selector states here...
 
-
+  # Equivalent to history.forward()
   history_forward: () =>
     @history_go(1)
 
+  # Equivalent to history.back()
   history_back: () =>
     @history_go(-1)
 
@@ -561,9 +568,19 @@ class XMLSchema
     # Show details in properties panel
     content = "<table class=\"attr-table\">" # fix this
     hidden  = ['children', '_children', 'x', 'y', 'px', 'cx', 'cy', 'DOMNodeName',
-                'y', 'py', 'index', 'fixed', 'fill', 'stroke', 'strokeWidth','radius']
+                'y', 'py', 'index', 'fixed', 'fill', 'stroke', 'strokeWidth','radius',
+                'nodes','name','cluster', 'text']
 
     $('#aggr_menu').children().remove();
+
+    if data.cluster == true
+      $('#meta_title').html('Cluster')
+      $('#meta_detail').html(data.nodes.length + ' nodes')
+      $('#meta_schema').hide()
+    else
+      $('#meta_title').html('Person')
+      $('#meta_detail').html(data.name)
+      $('#meta_schema').show()
 
     for key, value of data
       if hidden.indexOf(key) == -1
@@ -574,19 +591,18 @@ class XMLSchema
 
     content += "</table>"
 
-    d3.selectAll("#prop_meta").html(content)
-    $('#prop_panel').fadeIn()
-    $('#prop_meta input').on('click', () ->
-      checked = $(this).prop('checked')
-      if checked
-        $(this).parent().parent().addClass('selected')
-      else
-        $(this).parent().parent().removeClass('selected')
-    )
+    $('#meta_attr').html(content)
+    $('#prop_meta').fadeIn();
+
+    $('#meta_schema').unbind('click')
+    #$('#meta_schema').click(() => @show_schema(data))
 
     if data.cluster
       console.log "CLUSTER!", data
       this.display(data.nodes)
+
+  #show_schema: (data) =>
+  #  alert(data.name + '!')
 
   # Remove node from 'focus'
   clear_selection: (data, i, element) =>
@@ -699,6 +715,8 @@ $ ->
     root.display_all()
     $("#debug_btn1").click(() => chart.display())
     $("#reset_btn").click(() => chart.display())
+    window.onpopstate = (e) => chart.history_popstate(e)
+  
   root.display_all = () =>
     chart.display()
 
