@@ -69,8 +69,8 @@ footer {
 }
 
 .prop_panel {
-  display: none;
   position: absolute;
+  width: 180px;
   top: 20px;
   right: 50px;
   font-size: 13px;
@@ -78,9 +78,13 @@ footer {
 
 .prop_panel > div {
   padding: 10px;
-  border-radius: 5px;
+  border-radius: 2px;
   background: rgba(255,255,255,.7);
   margin-bottom: 20px;
+}
+
+#prop_ctrl {
+  padding-left: 15px;
 }
 
 .prop_panel .pinnable:hover {
@@ -91,8 +95,11 @@ footer {
   font-weight:bold;
 }
 
-.prop_panel .btn {
-  width: 200px;
+#viz1_btn, #viz2_btn, #reset_btn {
+  width: 150px;
+}
+#viz3_btn {
+  width: 125px;
 }
 
 .prop_panel .pin {

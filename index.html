@@ -22,14 +22,21 @@
   <div id="loader">Loading...</div>
   <div id="vis"></div>
   <div id="prop_panel" class="prop_panel">
-    <div id="prop_ctrl" align="center">
-      <button class="btn" id="viz1_btn">Raw Data</button><br /><br />
-      <button class="btn" id="viz2_btn">Community Detection</button><br /><br />
-      <button class="btn" id="viz3_btn">Group by Attribute</button><br />
+    <div id="prop_ctrl">
+      
+        <button class="btn" id="viz1_btn">Raw Data</button><br /><br />
+        <button class="btn" id="viz2_btn">Communities</button><br /><br />
+        
+        <div class="btn-group">
+          <button class="btn" id="viz3_btn">Aggregate</button>
+          <button class="btn dropdown-toggle" data-toggle="dropdown"><span class="caret"></span></button>
+          <ul class="dropdown-menu" id="aggr_menu">
+          </ul>
+        </div>
+        <br />
+        <button class="btn btn-primary" id="reset_btn">Reset</button>
     </div>
-    <div id="cluster_detail">
-      <button class="btn btn-primary" id="reset_btn">Reset</button><br /><br />
-    </div>
+    
     <div id="prop_meta">
 
     </div>
@@ -57,6 +64,7 @@
   <script src="lib/CustomTooltip.js"></script>
   <script src="lib/coffee-script.js"></script>
   <script src="lib/d3.v3.js"></script>
+  <script src="js/bootstrap.min.js"></script>
   <script type="text/coffeescript" src="coffee/vis.coffee"></script>
 
 </body>

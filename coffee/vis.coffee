@@ -527,10 +527,14 @@ class XMLSchema
     hidden  = ['children', '_children', 'x', 'y', 'px', 'cx', 'cy', 'DOMNodeName',
                 'y', 'py', 'index', 'fixed', 'fill', 'stroke', 'strokeWidth','radius']
 
+    $('#aggr_menu').children().remove();
+
     for key, value of data
       if hidden.indexOf(key) == -1
-        content += "<tr><td><input type=\"checkbox\" id=\"check_#{key}\" />&nbsp;<span class=\"name\">#{key}</span></td>" +
+        content += "<tr><td><!--<input type=\"checkbox\" id=\"check_#{key}\" />&nbsp;--><span class=\"name\">#{key}</span></td>" +
           "<td><span class=\"pinnable\"> #{value}</span></td></tr>"
+
+        $('#aggr_menu').append("<li><a tabindex=\"-1\">#{key}</a></li>");
 
     content += "</table>"
 
