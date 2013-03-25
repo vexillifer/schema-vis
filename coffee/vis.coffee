@@ -135,6 +135,8 @@ class XMLSchema
     @tooltip.hideTooltip()
 
   set_display_mode: (mode, meta) =>
+    @history_snapshot(@display_mode, @current_filter_node_list)
+
     @display_mode = { mode: mode }
     if mode == @display_modes.attribute
       @display_mode.attribute = meta
@@ -143,33 +145,29 @@ class XMLSchema
 
   # Take a snapshot of current state,
   # push it on to the history stack
-  history_snapshot: (display_arg) =>
+  history_snapshot: (mode, nodes) =>
     frame = {}
     frame.label = ""
-    frame.arg   = display_arg
+    frame.mode  = mode
+    frame.nodes = nodes 
     frame.ts    = Date.now()
-    @history.push(frame)
-    history.pushState({'position': @history.length - 1}, "", "")
+    history.pushState(frame, "", "")
+    console.log('Snapshot!')
 
   history_popstate: (e) =>
-    state = e.state
-    if state
-      @history_go(state.position)
+    console.log('POPSTATE ', e.state)
+    if e.state
+      @history_go(e.state)
 
   # Play a history snapshot into
   # current state
-  history_go: (i) =>
-
-    if i < 0 or i >= @history.length
-      return
-
+  history_go: (frame) =>
     $this = this
-
-    frame = @history[i]
-    console.log('History: ', i, frame)
+    console.log('History: ', frame)
     $('#svg_vis').remove()
     $('#prop_meta').fadeOut()
-    @display(frame.arg)
+    @display_mode = frame.mode
+    @display(frame.nodes)
 
 
   filter: (node_list) =>
@@ -185,9 +183,6 @@ class XMLSchema
     @reset()
     @current_filter_node_list = filter_node_list
     @foci.push @center
-
-    # Snap a history frame!
-    @history_snapshot(filter_node_list)
 
     # entire node list will be @people
     nodes = @people
