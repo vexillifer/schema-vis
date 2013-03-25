@@ -97,6 +97,16 @@ class XMLSchema
     # save the initial state
     @initial_state = this.history_snapshot(@display_mode, @current_context)
 
+    # properties hidden from tables and tooltips
+    @table_hidden_properties  = ['children', '_children', 'x', 'y', 'px', 'cx',
+      'cy', 'DOMNodeName', 'y', 'py', 'index', 'fixed', 'fill', 'stroke',
+      'strokeWidth', 'radius', 'nodes','name','cluster', 'text', 'idx', 'focus',
+      'weight', 'label']
+
+    @tooltip_hidden_properties  = ['children', '_children', 'x', 'y', 'px', 'cx',
+      'cy', 'DOMNodeName', 'y', 'py', 'index', 'fixed', 'fill', 'stroke',
+      'strokeWidth', 'radius', 'nodes', 'idx', 'weight', 'focus']
+
   # Compute all nodes and links in network
   # 1) Create a node for each profile
   # 2) Create a link for each connection
@@ -278,7 +288,8 @@ class XMLSchema
     for cluster, i in clusters
         cluster_nodes[i] = {
           radius: @config.cluster_radius_factor * Math.sqrt(cluster.nodes.length) + @config.cluster_radius_offset,
-          text: cluster.label + " ("+cluster.nodes.length+")",
+          text: cluster.short_label + " ("+cluster.nodes.length+")",
+          label: cluster.label
           x: circle_x(half_width, cluster_circle_const, i),
           y: circle_y(half_height, cluster_circle_const, i)
           cluster: true,
@@ -353,7 +364,7 @@ class XMLSchema
       for node in nodes
         attr_val = node[attr]
         if node_map[attr_val] == undefined
-          node_map[attr_val] = { label: attr+"="+attr_val, nodes: [] }
+          node_map[attr_val] = { short_label: attr_val, label: attr+" = "+attr_val, nodes: [] }
 
         # we only map the node idx (currently)
         node_map[attr_val].nodes.push(node.idx);
@@ -566,13 +577,9 @@ class XMLSchema
     if d3.select(element).attr("collapsed") == "false"
       d3.select(element).select("circle").attr("stroke", "black")
 
-    hidden  = ['children', '_children', 'x', 'y', 'px', 'cx', 'cy', 'DOMNodeName',
-                'y', 'py', 'index', 'fixed', 'fill', 'stroke', 'strokeWidth','radius',
-                'nodes', 'idx']
-
     content = "<table>"
     for key, value of data
-      if hidden.indexOf(key) == -1
+      if @tooltip_hidden_properties.indexOf(key) == -1 and value != ""
         content += "<tr><td><span class=\"name\">#{key}</span></td>" +
           "<td><span class=\"value\"> #{value}</span></td></tr>"
 
@@ -628,9 +635,6 @@ class XMLSchema
 
     # Show details in properties panel
     content = "<table class=\"attr-table\">" # fix this
-    hidden  = ['children', '_children', 'x', 'y', 'px', 'cx', 'cy', 'DOMNodeName',
-                'y', 'py', 'index', 'fixed', 'fill', 'stroke', 'strokeWidth','radius',
-                'nodes','name','cluster', 'text', 'idx']
 
     $('#aggr_menu').children().remove();
 
@@ -639,7 +643,7 @@ class XMLSchema
     $('#meta_schema').show()
 
     for key, value of data
-      if hidden.indexOf(key) == -1
+      if @table_hidden_properties.indexOf(key) == -1
         content += "<tr><td><!--<input type=\"checkbox\" id=\"check_#{key}\" />&nbsp;--><span class=\"name\">#{key}</span></td>" +
           "<td><span class=\"pinnable\"> #{value}</span></td></tr>"
 
@@ -676,12 +680,9 @@ class XMLSchema
 
   show_cluster_detail: (data) =>
     # show the cluster detail
-    $("#cluster_detail").html(data.text)
+    $("#cluster_detail").html(data.label)
 
     content = "<table class=\"attr-table\">"
-    hidden  = ['children', '_children', 'x', 'y', 'px', 'cx', 'cy', 'DOMNodeName',
-              'y', 'py', 'index', 'fixed', 'fill', 'stroke', 'strokeWidth','radius',
-              'nodes','name','cluster', 'text', 'idx', 'focus', 'weight']
 
     contentRow = (attr, value) ->
       return "<tr><td><span class=\"name\">#{attr}</span></td>" +
@@ -689,7 +690,7 @@ class XMLSchema
 
     content += contentRow("# nodes", data.nodes.length)
     for key, value of data
-      if hidden.indexOf(key) == -1
+      if @table_hidden_properties.indexOf(key) == -1
         content += contentRow(key, value)
 
     content += "</table>"
