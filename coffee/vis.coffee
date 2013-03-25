@@ -140,14 +140,16 @@ class XMLSchema
     $('#svg_vis').remove()
     @tick_count = 0
     @tooltip.hideTooltip()
+    this.clear_selection()
 
   set_display_mode: (mode, meta, redraw = true) =>
-
     @history_snapshot(@display_mode, @current_filter_node_list)
 
     @display_mode = { mode: mode }
     if mode == @display_modes.attribute
       @display_mode.attribute = meta
+
+
 
     if redraw
       this.display(@current_filter_node_list)
@@ -600,26 +602,13 @@ class XMLSchema
     # make the damn thing stop moving when something is clicked.
     @force.stop()
 
-    # Emphasis adjacent lines
-    if @focused_node_data?
-      focused_node_id = @focused_node_data.DOMNodeID
-    else focused_node_id = null
-    @lines.each( (d, i) ->
-      line = d3.select(@)
-      if focused_node_id?
-        if d.source.DOMNodeID == focused_node_id || d.target.DOMNodeID == focused_node_id
-          if line.attr("collapsed") == "false"
-            line.attr("style", "opacity:.2")
-      if d.source.DOMNodeID == data.DOMNodeID || d.target.DOMNodeID == data.DOMNodeID
-        if line.attr("collapsed") == "false"
-          line.attr("style", "opacity:.7"))
-
     # revert previously selected
-    if @focused_node?
-      @focused_node.select("circle")
-        .attr("r", @focused_node_data.radius or @config.node_radius)
-        .attr("fill", @focused_node_data.fill or @config.node_fill)
-        .attr("stroke", @focused_node_data.stroke or @config.node_stroke)
+    this.clear_selection()
+
+    # handle clusters differently
+    if data.cluster
+      this.select_cluster(data)
+      return
 
     # Emphasize selected node
     element.ownerSVGElement.appendChild(element) # move element to top
@@ -638,14 +627,9 @@ class XMLSchema
 
     $('#aggr_menu').children().remove();
 
-    if data.cluster == true
-      $('#meta_title').html('Cluster')
-      $('#meta_detail').html(data.nodes.length + ' nodes')
-      $('#meta_schema').hide()
-    else
-      $('#meta_title').html('Person')
-      $('#meta_detail').html(data.name)
-      $('#meta_schema').show()
+    $('#meta_title').html('Person')
+    $('#meta_detail').html(data.name)
+    $('#meta_schema').show()
 
     for key, value of data
       if hidden.indexOf(key) == -1
@@ -675,27 +659,42 @@ class XMLSchema
     .css('font-weight', 'bold')
     .attr('data-selected', true)
 
-    # zoom in on the cluster
-    if data.cluster
-      this.select_cluster(data)
-
   # assumes data represents a cluster (i.e. data.cluster = true)
   select_cluster: (data) =>
     @history_snapshot(@display_mode, @current_filter_node_list)
     if @display_mode.mode == @display_modes.attribute
       this.set_display_mode(@display_modes.raw, null, false) # do not redraw
+
+    # show the cluster detail
+    $("#cluster_detail").html(data.text)
+
+    content = "<table class=\"attr-table\">"
+    hidden  = ['children', '_children', 'x', 'y', 'px', 'cx', 'cy', 'DOMNodeName',
+              'y', 'py', 'index', 'fixed', 'fill', 'stroke', 'strokeWidth','radius',
+              'nodes','name','cluster', 'text', 'idx']
+    for key, value of data
+      if hidden.indexOf(key) == -1
+        content += "<tr><td><!--<input type=\"checkbox\" id=\"check_#{key}\" />&nbsp;--><span class=\"name\">#{key}</span></td>" +
+          "<td><span class=\"pinnable\"> #{value}</span></td></tr>"
+    content += "</table>"
+    $("#cluster_attr").html(content)
+    $("#prop_cluster").fadeIn();
+
     this.display(data.nodes)
 
   #show_schema: (data) =>
   #  alert(data.name + '!')
 
   # Remove node from 'focus'
-  clear_selection: (data, i, element) =>
-    @lines.attr("style", "opacity:.2")
-    @focused_node.attr("r", 15) if @focused_node?
+  clear_selection: () =>
+    if @focused_node?
+      @focused_node.select("circle")
+        .attr("r", @focused_node_data.radius or @config.node_radius)
+        .attr("fill", @focused_node_data.fill or @config.node_fill)
+        .attr("stroke", @focused_node_data.stroke or @config.node_stroke)
+
     @focused_node = null
-    d3.selectAll("#prop_meta").html("")
-    $('#prop_panel').fadeOut()
+    $("#prop_meta").hide()
 
 
   # Extra functionality through key shortcuts

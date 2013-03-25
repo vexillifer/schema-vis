@@ -92,6 +92,10 @@ footer {
   padding-left: 15px;
 }
 
+#prop_cluster {
+  display: none;
+}
+
 #prop_meta {
   display: none;
 }
