@@ -21,7 +21,7 @@ class XMLSchema
       cluster_radius_offset: 5
 
       # focused node properties
-      focused_radius: 8
+      focused_radius_offset: 3
       focused_fill: "#FFEFBF"
       focused_stroke: "#FFD04B"
 
@@ -94,6 +94,9 @@ class XMLSchema
       #@visualize()
       console.error 'Data is not a social network.'
 
+    # save the initial state
+    @initial_state = this.history_snapshot(@display_mode, @current_filter_node_list)
+
   # Compute all nodes and links in network
   # 1) Create a node for each profile
   # 2) Create a link for each connection
@@ -138,14 +141,16 @@ class XMLSchema
     @tick_count = 0
     @tooltip.hideTooltip()
 
-  set_display_mode: (mode, meta) =>
+  set_display_mode: (mode, meta, redraw = true) =>
+
     @history_snapshot(@display_mode, @current_filter_node_list)
 
     @display_mode = { mode: mode }
     if mode == @display_modes.attribute
       @display_mode.attribute = meta
 
-    this.display(@current_filter_node_list)
+    if redraw
+      this.display(@current_filter_node_list)
 
   # Take a snapshot of current state,
   # push it on to the history stack
@@ -157,6 +162,7 @@ class XMLSchema
     frame.ts    = Date.now()
     history.pushState(frame, "", "")
     console.log('Snapshot!')
+    return frame
 
   history_popstate: (e) =>
     console.log('POPSTATE ', e.state)
@@ -173,6 +179,9 @@ class XMLSchema
     @display_mode = frame.mode
     @display(frame.nodes)
 
+  history_reset: () =>
+    this.history_go(@initial_state)
+
 
   filter: (node_list) =>
     @visibility_map.length = 0
@@ -183,7 +192,7 @@ class XMLSchema
   # filter node list is an array of nodes that are visible, typically the contents of a cluster
   # if empty, all of @people is used
   display: (filter_node_list) =>
-    console.log "display()";
+    console.log "display()"
     @reset()
     @current_filter_node_list = filter_node_list
     @foci.push @center
@@ -198,7 +207,7 @@ class XMLSchema
     # in which case, we default to false. probably not a good idea in the long run.
     is_node_visible = (node) =>
       if node?
-        return filter_node_list == undefined or (filter_node_list? and @visibility_map[node.idx] == true)
+        return not filter_node_list? or (filter_node_list? and @visibility_map[node.idx] == true)
       return false
 
     # circle_x/y: gives the x/y coordinate, positioning items in a circle
@@ -547,7 +556,8 @@ class XMLSchema
       d3.select(element).select("circle").attr("stroke", "black")
 
     hidden  = ['children', '_children', 'x', 'y', 'px', 'cx', 'cy', 'DOMNodeName',
-                'y', 'py', 'index', 'fixed', 'fill', 'stroke', 'strokeWidth','radius', 'nodes']
+                'y', 'py', 'index', 'fixed', 'fill', 'stroke', 'strokeWidth','radius',
+                'nodes', 'idx']
 
     content = "<table>"
     for key, value of data
@@ -614,7 +624,7 @@ class XMLSchema
     @focused_node = d3.select(element)
     @focused_node_data = data
     @focused_node.select("circle")
-      .attr("r", @config.focused_radius)
+      .attr("r", (data.radius or @config.node_radius) + @config.focused_radius_offset)
       .attr("fill", @config.focused_fill)
       .attr("stroke", @config.focused_stroke)
 
@@ -622,7 +632,7 @@ class XMLSchema
     content = "<table class=\"attr-table\">" # fix this
     hidden  = ['children', '_children', 'x', 'y', 'px', 'cx', 'cy', 'DOMNodeName',
                 'y', 'py', 'index', 'fixed', 'fill', 'stroke', 'strokeWidth','radius',
-                'nodes','name','cluster', 'text']
+                'nodes','name','cluster', 'text', 'idx']
 
     $('#aggr_menu').children().remove();
 
@@ -663,9 +673,16 @@ class XMLSchema
     .css('font-weight', 'bold')
     .attr('data-selected', true)
 
+    # zoom in on the cluster
     if data.cluster
-      @history_snapshot(@display_mode, @current_filter_node_list)
-      this.display(data.nodes)
+      this.select_cluster(data)
+
+  # assumes data represents a cluster (i.e. data.cluster = true)
+  select_cluster: (data) =>
+    @history_snapshot(@display_mode, @current_filter_node_list)
+    if @display_mode.mode == @display_modes.attribute
+      this.set_display_mode(@display_modes.raw, null, false) # do not redraw
+    this.display(data.nodes)
 
   #show_schema: (data) =>
   #  alert(data.name + '!')
@@ -789,8 +806,7 @@ $ ->
     #chart.start_ex()
     root.display_all()
     $("#debug_btn1").click(() => chart.display())
-    $("#reset_btn").click(() => chart.display())
-    $("#reset_btn").click(()  => chart.display())
+    $("#reset_btn").click(() => chart.history_reset())
 
     # Raw data
     $('#viz1_btn').click(()   => chart.display_raw())
