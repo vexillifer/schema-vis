@@ -20,6 +20,11 @@ class XMLSchema
       cluster_radius_factor: 4
       cluster_radius_offset: 5
 
+      # focused node properties
+      focused_radius: 8
+      focused_fill: "#FFEFBF"
+      focused_stroke: "#FFD04B"
+
       # performance otions
       static_load: 0,
       expand_circles_on_entry: false,
@@ -577,9 +582,6 @@ class XMLSchema
   # Make the selected node 'focused'
   # Apply style and show meta data
   select_node: (data, i, element) =>
-    # TODO temporarily mark the node
-    this.mark_node data, i, element
-
     # create that to preserve this within d3 select each call
     that = this
 
@@ -600,12 +602,21 @@ class XMLSchema
         if line.attr("collapsed") == "false"
           line.attr("style", "opacity:.7"))
 
-    # Emphasis selected node
-    element.ownerSVGElement.appendChild(element)
-    @focused_node.attr("r", 15) if @focused_node?
-    d3.select(element).attr("r", 25)
+    # revert previously selected
+    if @focused_node?
+      @focused_node.select("circle")
+        .attr("r", @focused_node_data.radius or @config.node_radius)
+        .attr("fill", @focused_node_data.fill or @config.node_fill)
+        .attr("stroke", @focused_node_data.stroke or @config.node_stroke)
+
+    # Emphasize selected node
+    element.ownerSVGElement.appendChild(element) # move element to top
     @focused_node = d3.select(element)
     @focused_node_data = data
+    @focused_node.select("circle")
+      .attr("r", @config.focused_radius)
+      .attr("fill", @config.focused_fill)
+      .attr("stroke", @config.focused_stroke)
 
     # Show details in properties panel
     content = "<table class=\"attr-table\">" # fix this
