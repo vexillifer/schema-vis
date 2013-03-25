@@ -143,14 +143,10 @@ class XMLSchema
 
   # Take a snapshot of current state,
   # push it on to the history stack
-  history_snapshot: () =>
+  history_snapshot: (display_arg) =>
     frame = {}
     frame.label = ""
-    frame.nodes = @nodes
-    frame.foci  = @foci
-    frame.links = @links
-    #frame.svg   = $('#vis').html()
-    frame.svg   = document.getElementById('svg_vis').cloneNode(true)
+    frame.arg   = display_arg
     frame.ts    = Date.now()
     @history.push(frame)
     history.pushState({'position': @history.length - 1}, "", "")
@@ -167,13 +163,14 @@ class XMLSchema
     if i < 0 or i >= @history.length
       return
 
+    $this = this
+
     frame = @history[i]
-    @nodes = frame.nodes
-    @foci  = frame.foci
-    @links = frame.links
-    #$('#vis').html(frame.svg)
-    $('#svg_vis').replaceWith(frame.svg)
-    # potentially update selector states here...?
+    console.log('History: ', i, frame)
+    $('#svg_vis').remove()
+    $('#prop_meta').fadeOut()
+    @display(frame.arg)
+
 
   filter: (node_list) =>
     @visibility_map.length = 0
@@ -188,6 +185,9 @@ class XMLSchema
     @reset()
     @current_filter_node_list = filter_node_list
     @foci.push @center
+
+    # Snap a history frame!
+    @history_snapshot(filter_node_list)
 
     # entire node list will be @people
     nodes = @people
@@ -494,9 +494,7 @@ class XMLSchema
         if @tick_count > @config.tick_limit
           console.log "tick limit "+@config.tick_limit+" reached"
           @tick_count = 0
-          # Snapshot the state save to history
-          @history_snapshot()
-          # Force the layout to stop
+          # Force the layout to stop 
           @force.stop()
 
     $("#loader").show();
