@@ -452,8 +452,7 @@ class XMLSchema
       .attr('y', (d,i) -> d.y or $this.center.y)
       .on('mouseover', (d,i) -> $this.show_details(d,i,this))
       .on( 'mouseout', (d,i) -> $this.hide_details(d,i,this))
-      .on(    'click', (d,i) -> $this.select_node(d,i,this))
-      #.on(    'click', (d,i) -> $this.mark_node(d,i,this)) TODO mark
+      .on(    'click', (d,i) -> $this.toggle_node(d,i,this))
       .call(@node_drag)
 
     # create node circles
@@ -607,6 +606,13 @@ class XMLSchema
   output_marked_nodes: () =>
     console.log $.makeArray($("circle[marked]").map(() -> parseInt(this.attributes.idx.value))).join()
 
+  toggle_node: (data, i, element) =>
+    if data == @focused_node_data # clicking the selected node
+      @force.stop()
+      this.clear_selection()
+    else
+      this.select_node(data, i, element)
+
   # Make the selected node 'focused'
   # Apply style and show meta data
   select_node: (data, i, element) =>
@@ -709,6 +715,7 @@ class XMLSchema
         .attr("stroke", @focused_node_data.stroke or @config.node_stroke)
 
     @focused_node = null
+    @focused_node_data = null
     $("#prop_meta").hide()
 
 
