@@ -226,6 +226,8 @@ class XMLSchema
 
     # build up set of nodes
     for node, i in nodes
+      node.fixed = false # revert pinned behavior
+
       if is_node_visible node
         node.radius = @config.node_radius
         node.text = ''
