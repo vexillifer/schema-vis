@@ -164,3 +164,11 @@ footer {
   cursor: default;
   background: transparent;
 }
+
+/* context detail */
+#context li span {
+  display: block;
+  font-size: .9em;
+  color: #666;
+  font-style: italic;
+}

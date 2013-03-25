@@ -187,9 +187,16 @@ class XMLSchema
         this.history_go($(event.target).data("frame")))
       .appendTo("#context");
 
+  add_context_detail: (detail) =>
+    $("#context").find("li").last().append("<span>"+detail+"</span>");
+
+  remove_context_detail: () =>
+    $("#context").find("li").last().find("span").remove();
+
   remove_context_item: () =>
     $("#context").find("li").last().remove();
     $("#context").find("li").last().removeData("frame");
+    this.remove_context_detail();
 
   # remove all context items after specified timestamp
   remove_context_items: (timestamp) =>
@@ -200,6 +207,7 @@ class XMLSchema
 
     # disassociate the frame with the last remaining context item
     $("#context").find("li").last().removeData("frame")
+    this.remove_context_detail();
 
     # ensure we leave at least one item there.
     if $("#context").find("li").length == 0
@@ -734,6 +742,7 @@ class XMLSchema
 
   # assumes data represents a cluster (i.e. data.cluster = true)
   select_cluster: (data) =>
+    this.add_context_detail(data.text);
     @history_snapshot(@display_mode, @current_context)
     if @display_mode.mode == @display_modes.attribute
       this.set_display_mode(@display_modes.raw, null, false) # do not redraw
