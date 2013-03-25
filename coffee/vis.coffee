@@ -48,6 +48,11 @@ class XMLSchema
     @link_distance = 100
     @layout_gravity = 0.1
 
+    #configure clustering type
+    @display_modes = { raw: "raw", community: "community", attribute: "attribute" } # enum sort of
+    display_modes: @display_modes # make public
+    @display_mode = { mode: @display_modes.raw }
+
     # network data
     @people = []
     @connections = []
@@ -66,6 +71,11 @@ class XMLSchema
 
     @focused_node = null
     @focused_node_data = null
+
+    # current state
+    @current_filter_node_list = null
+
+    @get_colour = d3.scale.category20(); # a function takes in an int and produces a colour string
 
     if @data.firstChild.nodeName == 'network'
       @explore_network(@data)
@@ -119,6 +129,14 @@ class XMLSchema
     @tick_count = 0
     @tooltip.hideTooltip()
 
+  set_display_mode: (mode, meta) =>
+    @display_mode = { mode: mode }
+    if mode == @display_modes.attribute
+      @display_mode.attribute = meta
+
+    this.display(@current_filter_node_list)
+
+
 
   filter: (node_list) =>
     @visibility_map.length = 0
@@ -131,6 +149,7 @@ class XMLSchema
   display: (filter_node_list) =>
     console.log "display()";
     @reset()
+    @current_filter_node_list = filter_node_list
     @foci.push @center
 
     # entire node list will be @people
@@ -196,7 +215,7 @@ class XMLSchema
     # create node to cluster map (node.idx -> cluster index)
     node_cluster_map = {}
     for cluster, cluster_index in clusters
-      for node_idx in cluster
+      for node_idx in cluster.nodes
         node_cluster_map[node_idx] = cluster_index
 
     # remove nodes that are in clusters
@@ -212,13 +231,15 @@ class XMLSchema
     # initialize clustered nodes
     for cluster, i in clusters
         cluster_nodes[i] = {
-          radius: @config.cluster_radius_factor * Math.sqrt(cluster.length) + @config.cluster_radius_offset,
-          text: cluster.length,
+          radius: @config.cluster_radius_factor * Math.sqrt(cluster.nodes.length) + @config.cluster_radius_offset,
+          text: cluster.label + " ("+cluster.nodes.length+")",
           x: circle_x(half_width, cluster_circle_const, i),
           y: circle_y(half_height, cluster_circle_const, i)
           cluster: true,
-          nodes: cluster, # the array of node idx that this cluster contains
+          nodes: cluster.nodes, # the array of node idx that this cluster contains
           focus: i+1 # +1 since 0 is center
+          fill: @get_colour(i)
+          stroke: d3.rgb(@get_colour(i)).darker(1).toString()
         }
         cluster_nodes[i].px = cluster_nodes[i].x
         cluster_nodes[i].py = cluster_nodes[i].y
@@ -249,16 +270,37 @@ class XMLSchema
 
   # TODO: this should be smart one day.
   get_clusters: (nodes, links) =>
+    # aggregate by attribute
+    if @display_mode.mode == @display_modes.attribute
+      attr = @display_mode.attribute # the attribute to aggregate on
+      node_map = {}
+
+      for node in nodes
+        attr_val = node[attr]
+        if node_map[attr_val] == undefined
+          node_map[attr_val] = { label: attr+"="+attr_val, nodes: [] }
+
+        # we only map the node idx (currently)
+        node_map[attr_val].nodes.push(node.idx);
+
+      # convert multi array format
+      node_clusters = []
+      for attribute, cluster of node_map
+        node_clusters.push(cluster)
+
+      return node_clusters
+
+    # temporary clustering hacks
     if nodes.length > 20
       return [
-        [7,12,14,16,45,54,62,66,74,82,86,89,90,97,101,105,112,113,114,120,155,157,160,161,164,171,173,186,187,192,194,205,208,210,215,216,217,221,232,233,234,236,241,258,259,260,261,264,269,272],
-        [13,15,17,18,20,21,22,23,24,25,27,28,29,30,31,32,34,35,36,37,38,39,40,42,43,44,46,48,51,53,55,58,60,68,69,70,71,72,75,76,77,78,79,80,85,91,95,96,98,99,100,102,106,107,108,109,110,116,117,119,122,123,124,125,126,127,128,129,130,132,133,134,138,139,149,151,153,156,158,159,170,178,179,181,182,185,191,202,203,207,213,220,222,227,242,243,244,245,246,247,248,249,250,251,252,253,254,255,257,262,266,267,268,271]
+        { label: "first", nodes: [7,12,14,16,45,54,62,66,74,82,86,89,90,97,101,105,112,113,114,120,155,157,160,161,164,171,173,186,187,192,194,205,208,210,215,216,217,221,232,233,234,236,241,258,259,260,261,264,269,272]},
+        { label: "second", nodes: [13,15,17,18,20,21,22,23,24,25,27,28,29,30,31,32,34,35,36,37,38,39,40,42,43,44,46,48,51,53,55,58,60,68,69,70,71,72,75,76,77,78,79,80,85,91,95,96,98,99,100,102,106,107,108,109,110,116,117,119,122,123,124,125,126,127,128,129,130,132,133,134,138,139,149,151,153,156,158,159,170,178,179,181,182,185,191,202,203,207,213,220,222,227,242,243,244,245,246,247,248,249,250,251,252,253,254,255,257,262,266,267,268,271] }
       ]
     else if nodes.length > 10
       return [
-        [ 0, 1, 2, 3 ],
-        [ 4, 5, 6 ],
-        [ 7, 8 ]
+        { label: "first", nodes: [ 0, 1, 2, 3 ] },
+        { label: "second", nodes: [ 4, 5, 6 ] },
+        { label: "third", nodes: [ 7, 8 ] }
       ]
     return []
 
@@ -457,7 +499,8 @@ class XMLSchema
       d3.select(element).select("circle").attr("stroke", "black")
 
     hidden  = ['children', '_children', 'x', 'y', 'px', 'cx', 'cy', 'DOMNodeName',
-                'y', 'py', 'index', 'fixed', 'fill', 'stroke', 'strokeWidth','radius']
+                'y', 'py', 'index', 'fixed', 'fill', 'stroke', 'strokeWidth','radius',
+                'nodes']
 
     content = "<table>"
     for key, value of data
@@ -525,7 +568,8 @@ class XMLSchema
     # Show details in properties panel
     content = "<table class=\"attr-table\">" # fix this
     hidden  = ['children', '_children', 'x', 'y', 'px', 'cx', 'cy', 'DOMNodeName',
-                'y', 'py', 'index', 'fixed', 'fill', 'stroke', 'strokeWidth','radius']
+                'y', 'py', 'index', 'fixed', 'fill', 'stroke', 'strokeWidth','radius'
+                'nodes']
 
     for key, value of data
       if hidden.indexOf(key) == -1
@@ -659,6 +703,9 @@ $ ->
     root.display_all()
     $("#debug_btn1").click(() => chart.display())
     $("#reset_btn").click(() => chart.display())
+    $("#viz1_btn").click(() => chart.set_display_mode(chart.display_modes.raw))
+    $("#viz2_btn").click(() => chart.set_display_mode(chart.display_modes.community))
+    $("#viz3_btn").click(() => chart.set_display_mode(chart.display_modes.attribute, "sex"))
   root.display_all = () =>
     chart.display()
 
