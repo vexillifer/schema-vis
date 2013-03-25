@@ -153,16 +153,59 @@ class XMLSchema
     this.clear_selection()
 
   set_display_mode: (mode, meta, redraw = true) =>
-    @history_snapshot(@display_mode, @current_context)
+    # TODO: do we really want snapshots at changing mode? maybe just at cluster select
+    # maybe this should .replaceState instead of push?
+    #@history_snapshot(@display_mode, @current_context)
 
     @display_mode = { mode: mode }
     if mode == @display_modes.attribute
       @display_mode.attribute = meta
 
-
+    $("#context").find("li").last().html(this.mode_string());
 
     if redraw
       this.display(@current_context)
+
+  # string to show in history/context
+  mode_string: (mode = @display_mode) =>
+    switch mode.mode
+      when @display_modes.raw
+        "Raw Data"
+      when @display_modes.community
+        "Communities"
+      when @display_modes.attribute
+        "Aggregated by <b>" + mode.attribute + "</b>"
+
+  create_context_item: (frame) =>
+    # save the frame in the previous item
+    if frame?
+      $("#context").find("li").last().data("frame", frame)
+
+    # create new item
+    $("<li>"+this.mode_string()+"</li>")
+      .on("click", (event) =>
+        this.history_go($(event.target).data("frame")))
+      .appendTo("#context");
+
+  remove_context_item: () =>
+    $("#context").find("li").last().remove();
+    $("#context").find("li").last().removeData("frame");
+
+  # remove all context items after specified timestamp
+  remove_context_items: (timestamp) =>
+    $("#context").find("li").filter(() ->
+      frame = $(this).data("frame")
+      return frame == undefined or frame.ts > timestamp
+    ).remove();
+
+    # disassociate the frame with the last remaining context item
+    $("#context").find("li").last().removeData("frame")
+
+    # ensure we leave at least one item there.
+    if $("#context").find("li").length == 0
+      this.create_context_item()
+
+
 
   # Take a snapshot of current state,
   # push it on to the history stack
@@ -174,6 +217,7 @@ class XMLSchema
     frame.ts    = Date.now()
     history.pushState(frame, "", "")
     console.log('Snapshot!')
+    this.create_context_item(frame);
     return frame
 
   history_popstate: (e) =>
@@ -181,14 +225,26 @@ class XMLSchema
     if e.state
       @history_go(e.state)
 
+    this.remove_context_item();
+
   # Play a history snapshot into
   # current state
   history_go: (frame) =>
+    if not frame?
+      console.log "Warning: ignoring history_go with no frame"
+      return
+
+
     $this = this
     console.log('History: ', frame)
     $('#svg_vis').remove()
     $('#prop_meta').fadeOut()
     @display_mode = frame.mode
+
+    # remove the context items that are after this frame
+    this.remove_context_items(frame.ts)
+
+
     @display(frame.context)
 
   history_reset: () =>

@@ -139,3 +139,31 @@ footer {
 #debug_btn1 {
   position: absolute; bottom: 0; left: 0;
 }
+
+#context_panel {
+  padding: 0;
+}
+
+#context {
+  list-style-type: none;
+  margin: 0;
+}
+
+#context li {
+  border-bottom: 1px solid #ddd;
+  padding: 6px 10px;
+}
+
+#context li:hover {
+  cursor: pointer;
+  background: #eee;
+}
+
+#context li:last-child {
+  border-bottom: 0;
+}
+
+#context li:last-child:hover {
+  cursor: default;
+  background: transparent;
+}
