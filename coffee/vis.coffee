@@ -82,7 +82,7 @@ class XMLSchema
     @focused_node_data = null
 
     # current state
-    @current_filter_node_list = null
+    @current_context = null
 
     @get_colour = d3.scale.category20(); # a function takes in an int and produces a colour string
 
@@ -95,7 +95,7 @@ class XMLSchema
       console.error 'Data is not a social network.'
 
     # save the initial state
-    @initial_state = this.history_snapshot(@display_mode, @current_filter_node_list)
+    @initial_state = this.history_snapshot(@display_mode, @current_context)
 
   # Compute all nodes and links in network
   # 1) Create a node for each profile
@@ -143,7 +143,7 @@ class XMLSchema
     this.clear_selection()
 
   set_display_mode: (mode, meta, redraw = true) =>
-    @history_snapshot(@display_mode, @current_filter_node_list)
+    @history_snapshot(@display_mode, @current_context)
 
     @display_mode = { mode: mode }
     if mode == @display_modes.attribute
@@ -152,15 +152,15 @@ class XMLSchema
 
 
     if redraw
-      this.display(@current_filter_node_list)
+      this.display(@current_context)
 
   # Take a snapshot of current state,
   # push it on to the history stack
-  history_snapshot: (mode, nodes) =>
+  history_snapshot: (mode, context = @current_context) =>
     frame = {}
     frame.label = ""
     frame.mode  = mode
-    frame.nodes = nodes
+    frame.context = context
     frame.ts    = Date.now()
     history.pushState(frame, "", "")
     console.log('Snapshot!')
@@ -179,7 +179,7 @@ class XMLSchema
     $('#svg_vis').remove()
     $('#prop_meta').fadeOut()
     @display_mode = frame.mode
-    @display(frame.nodes)
+    @display(frame.context)
 
   history_reset: () =>
     this.history_go(@initial_state)
@@ -193,16 +193,17 @@ class XMLSchema
 
   # filter node list is an array of nodes that are visible, typically the contents of a cluster
   # if empty, all of @people is used
-  display: (filter_node_list) =>
+  display: (context) =>
     console.log "display()"
     @reset()
-    @current_filter_node_list = filter_node_list
+    @current_context = context
     @foci.push @center
 
     # entire node list will be @people
     nodes = @people
 
     # setup the visibility map
+    filter_node_list = context?.nodes
     this.filter(filter_node_list)
 
     # checks if we filtered at all... kind of a lazy way of defaulting to true unless a list is specified,
@@ -311,9 +312,15 @@ class XMLSchema
     # remove self links
     @links = _.filter(@links, (link) -> link.source != link.target)
 
+    # see if we need to display the cluster context
+    if context?
+      this.show_cluster_detail(context)
+    else
+      this.hide_cluster_detail()
+
+
     @run()
 
-  # TODO: implement me!
   display_aggregate: (attr) =>
     if attr and attr.trim().length != 0
       @set_display_mode(@display_modes.attribute, attr);
@@ -661,29 +668,36 @@ class XMLSchema
 
   # assumes data represents a cluster (i.e. data.cluster = true)
   select_cluster: (data) =>
-    @history_snapshot(@display_mode, @current_filter_node_list)
+    @history_snapshot(@display_mode, @current_context)
     if @display_mode.mode == @display_modes.attribute
       this.set_display_mode(@display_modes.raw, null, false) # do not redraw
 
+    this.display(data)
+
+  show_cluster_detail: (data) =>
     # show the cluster detail
     $("#cluster_detail").html(data.text)
 
     content = "<table class=\"attr-table\">"
     hidden  = ['children', '_children', 'x', 'y', 'px', 'cx', 'cy', 'DOMNodeName',
               'y', 'py', 'index', 'fixed', 'fill', 'stroke', 'strokeWidth','radius',
-              'nodes','name','cluster', 'text', 'idx']
+              'nodes','name','cluster', 'text', 'idx', 'focus', 'weight']
+
+    contentRow = (attr, value) ->
+      return "<tr><td><span class=\"name\">#{attr}</span></td>" +
+          "<td><span class=\"pinnable\"> #{value}</span></td></tr>"
+
+    content += contentRow("# nodes", data.nodes.length)
     for key, value of data
       if hidden.indexOf(key) == -1
-        content += "<tr><td><!--<input type=\"checkbox\" id=\"check_#{key}\" />&nbsp;--><span class=\"name\">#{key}</span></td>" +
-          "<td><span class=\"pinnable\"> #{value}</span></td></tr>"
+        content += contentRow(key, value)
+
     content += "</table>"
     $("#cluster_attr").html(content)
     $("#prop_cluster").fadeIn();
 
-    this.display(data.nodes)
-
-  #show_schema: (data) =>
-  #  alert(data.name + '!')
+  hide_cluster_detail: () ->
+    $("#prop_cluster").hide()
 
   # Remove node from 'focus'
   clear_selection: () =>
