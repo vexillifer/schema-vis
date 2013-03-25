@@ -28,6 +28,11 @@ class XMLSchema
       cluster_expand: "alone" # current settings are "inplace" or "alone"
     }
 
+    # The history stack
+    @history = []
+    # The history pointer
+    @history_pos = 0
+
     @width = window.innerWidth
     @height = window.innerHeight
     @data = data
@@ -136,7 +141,39 @@ class XMLSchema
 
     this.display(@current_filter_node_list)
 
+  # Take a snapshot of current state,
+  # push it on to the history stack
+  history_snapshot: () =>
+    frame = {}
+    frame.label = ""
+    frame.nodes = @nodes
+    frame.foci  = @foci
+    frame.links = @links
+    #frame.svg   = $('#vis').html()
+    frame.svg   = document.getElementById('svg_vis').cloneNode(true)
+    frame.ts    = Date.now()
+    @history.push(frame)
+    history.pushState({'position': @history.length - 1}, "", "")
 
+  history_popstate: (e) =>
+    state = e.state
+    if state
+      @history_go(state.position)
+
+  # Play a history snapshot into
+  # current state
+  history_go: (i) =>
+
+    if i < 0 or i >= @history.length
+      return
+
+    frame = @history[i]
+    @nodes = frame.nodes
+    @foci  = frame.foci
+    @links = frame.links
+    #$('#vis').html(frame.svg)
+    $('#svg_vis').replaceWith(frame.svg)
+    # potentially update selector states here...?
 
   filter: (node_list) =>
     @visibility_map.length = 0
@@ -267,6 +304,19 @@ class XMLSchema
     @links = _.filter(@links, (link) -> link.source != link.target)
 
     @run()
+
+  # TODO: implement me!
+  display_aggregate: (attr) =>
+    if attr and attr.trim().length != 0
+      @set_display_mode(@display_modes.attribute, attr);
+
+  # TODO: implement me!
+  display_communities: () =>
+    @set_display_mode(@display_modes.community)
+
+  # TODO: implement me!
+  display_raw: () =>
+    @set_display_mode(@display_modes.raw)
 
   # TODO: this should be smart one day.
   get_clusters: (nodes, links) =>
@@ -444,6 +494,9 @@ class XMLSchema
         if @tick_count > @config.tick_limit
           console.log "tick limit "+@config.tick_limit+" reached"
           @tick_count = 0
+          # Snapshot the state save to history
+          @history_snapshot()
+          # Force the layout to stop
           @force.stop()
 
     $("#loader").show();
@@ -499,8 +552,7 @@ class XMLSchema
       d3.select(element).select("circle").attr("stroke", "black")
 
     hidden  = ['children', '_children', 'x', 'y', 'px', 'cx', 'cy', 'DOMNodeName',
-                'y', 'py', 'index', 'fixed', 'fill', 'stroke', 'strokeWidth','radius',
-                'nodes']
+                'y', 'py', 'index', 'fixed', 'fill', 'stroke', 'strokeWidth','radius', 'nodes']
 
     content = "<table>"
     for key, value of data
@@ -568,29 +620,54 @@ class XMLSchema
     # Show details in properties panel
     content = "<table class=\"attr-table\">" # fix this
     hidden  = ['children', '_children', 'x', 'y', 'px', 'cx', 'cy', 'DOMNodeName',
-                'y', 'py', 'index', 'fixed', 'fill', 'stroke', 'strokeWidth','radius'
-                'nodes']
+                'y', 'py', 'index', 'fixed', 'fill', 'stroke', 'strokeWidth','radius',
+                'nodes','name','cluster', 'text']
+
+    $('#aggr_menu').children().remove();
+
+    if data.cluster == true
+      $('#meta_title').html('Cluster')
+      $('#meta_detail').html(data.nodes.length + ' nodes')
+      $('#meta_schema').hide()
+    else
+      $('#meta_title').html('Person')
+      $('#meta_detail').html(data.name)
+      $('#meta_schema').show()
 
     for key, value of data
       if hidden.indexOf(key) == -1
-        content += "<tr><td><input type=\"checkbox\" id=\"check_#{key}\" />&nbsp;<span class=\"name\">#{key}</span></td>" +
+        content += "<tr><td><!--<input type=\"checkbox\" id=\"check_#{key}\" />&nbsp;--><span class=\"name\">#{key}</span></td>" +
           "<td><span class=\"pinnable\"> #{value}</span></td></tr>"
+
+        $('#aggr_menu').append("<li><a tabindex=\"-1\">#{key}</a></li>");
 
     content += "</table>"
 
-    d3.selectAll("#prop_meta").html(content)
-    $('#prop_panel').fadeIn()
-    $('#prop_meta input').on('click', () ->
-      checked = $(this).prop('checked')
-      if checked
-        $(this).parent().parent().addClass('selected')
-      else
-        $(this).parent().parent().removeClass('selected')
+    $('#meta_attr').html(content)
+    $('#prop_meta').fadeIn();
+
+    $('#meta_schema').unbind('click')
+    #$('#meta_schema').click(() => @show_schema(data))
+
+    $('#aggr_menu a').click(() ->
+      $('#aggr_menu a').removeAttr('data-selected').css('font-weight','normal')
+      $(this).css('font-weight', 'bold')
+      $(this).attr('data-selected', true)
+      that.display_aggregate($(this).html())
     )
+
+    # Default attribute to aggregate on is
+    # the first one...
+    $('#aggr_menu > li:first-child a')
+    .css('font-weight', 'bold')
+    .attr('data-selected', true)
 
     if data.cluster
       console.log "CLUSTER!", data
       this.display(data.nodes)
+
+  #show_schema: (data) =>
+  #  alert(data.name + '!')
 
   # Remove node from 'focus'
   clear_selection: (data, i, element) =>
@@ -703,9 +780,19 @@ $ ->
     root.display_all()
     $("#debug_btn1").click(() => chart.display())
     $("#reset_btn").click(() => chart.display())
-    $("#viz1_btn").click(() => chart.set_display_mode(chart.display_modes.raw))
-    $("#viz2_btn").click(() => chart.set_display_mode(chart.display_modes.community))
-    $("#viz3_btn").click(() => chart.set_display_mode(chart.display_modes.attribute, "sex"))
+    $("#reset_btn").click(()  => chart.display())
+
+    # Raw data
+    $('#viz1_btn').click(()   => chart.display_raw())
+    # Communities
+    $('#viz2_btn').click(()   => chart.display_communities())
+    # Aggregate
+    $('#viz3_btn').click(() =>
+      chart.display_aggregate($('#aggr_menu a[data-selected="true"]').html())
+    )
+    # Back button
+    window.onpopstate = (e)   => chart.history_popstate(e)
+
   root.display_all = () =>
     chart.display()
 
