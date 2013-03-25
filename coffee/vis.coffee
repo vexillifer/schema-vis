@@ -672,19 +672,28 @@ class XMLSchema
   key_stroke: () =>
     if d3.event?
       # Aggregate node (not fully implemented)
-      if (d3.event.keyCode == 65)
-        node_name = @focused_node_data.DOMNodeName
-        @circles.each( (d,i) ->
-          if d.DOMNodeName == node_name
-            console.log node_name
-        )
-      else if (d3.event.keyCode == 67)
-        # Show or hide children (key: 'C')
-        if @focused_node_data?
-          if @focused_node_data.children.length isnt 0
-            @hide_children null
-          else if @focused_node_data._children.length isnt 0
-            @show_children null
+      switch d3.event.keyCode
+        when 65
+          node_name = @focused_node_data.DOMNodeName
+          @circles.each( (d,i) ->
+            if d.DOMNodeName == node_name
+              console.log node_name
+          )
+        when 67
+          # Show or hide children (key: 'C')
+          if @focused_node_data?
+            if @focused_node_data.children.length isnt 0
+              @hide_children null
+            else if @focused_node_data._children.length isnt 0
+              @show_children null
+        when 32
+          # toggle between playing/pausing the force layout (key: ' ')
+          if @force.alpha() == 0
+            @force.start()
+          else
+            @force.stop()
+        else
+          console.log d3.event.keyCode
 
   # Recurse through children and hide those nodes from the vis
   hide_children: (children) =>
