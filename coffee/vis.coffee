@@ -15,7 +15,7 @@ class XMLSchema
       line_stroke_width: 1,
       line_stroke: '#aaaaaa',
       line_stroke_opacity: 1,
-      show_foci: true,
+      show_foci: false,
 
       cluster_radius_factor: 4
       cluster_radius_offset: 5
@@ -24,8 +24,7 @@ class XMLSchema
       static_load: 0,
       expand_circles_on_entry: false,
       node_limit: 300,
-      tick_limit: 100,
-      cluster_expand: "alone" # current settings are "inplace" or "alone"
+      tick_limit: 10, # TODO: set low for faster debugging
     }
 
     # The history stack
@@ -149,7 +148,7 @@ class XMLSchema
     frame = {}
     frame.label = ""
     frame.mode  = mode
-    frame.nodes = nodes 
+    frame.nodes = nodes
     frame.ts    = Date.now()
     history.pushState(frame, "", "")
     console.log('Snapshot!')
@@ -238,11 +237,7 @@ class XMLSchema
 
 
     # we have nodes and edges, now apply clustering.
-    # TODO: remove this. temporarily only get clusters if no filtering.
-    if filter_node_list == undefined
-      clusters = this.get_clusters(@nodes, @links)
-    else
-      clusters = []
+    clusters = this.get_clusters(@nodes, @links)
 
     # create node to cluster map (node.idx -> cluster index)
     node_cluster_map = {}
@@ -313,8 +308,18 @@ class XMLSchema
   display_raw: () =>
     @set_display_mode(@display_modes.raw)
 
-  # TODO: this should be smart one day.
   get_clusters: (nodes, links) =>
+    # returns the list of clusters where each cluster has length > 1
+    validate_clusters = (clusters) ->
+      valid_clusters = []
+      for cluster in clusters
+        if cluster.nodes.length > 1 then valid_clusters.push(cluster)
+      return valid_clusters
+
+    # show raw data - no clusters
+    if @display_mode.mode == @display_modes.raw
+      return []
+
     # aggregate by attribute
     if @display_mode.mode == @display_modes.attribute
       attr = @display_mode.attribute # the attribute to aggregate on
@@ -333,20 +338,12 @@ class XMLSchema
       for attribute, cluster of node_map
         node_clusters.push(cluster)
 
-      return node_clusters
+      return validate_clusters(node_clusters)
 
-    # temporary clustering hacks
-    if nodes.length > 20
-      return [
-        { label: "first", nodes: [7,12,14,16,45,54,62,66,74,82,86,89,90,97,101,105,112,113,114,120,155,157,160,161,164,171,173,186,187,192,194,205,208,210,215,216,217,221,232,233,234,236,241,258,259,260,261,264,269,272]},
-        { label: "second", nodes: [13,15,17,18,20,21,22,23,24,25,27,28,29,30,31,32,34,35,36,37,38,39,40,42,43,44,46,48,51,53,55,58,60,68,69,70,71,72,75,76,77,78,79,80,85,91,95,96,98,99,100,102,106,107,108,109,110,116,117,119,122,123,124,125,126,127,128,129,130,132,133,134,138,139,149,151,153,156,158,159,170,178,179,181,182,185,191,202,203,207,213,220,222,227,242,243,244,245,246,247,248,249,250,251,252,253,254,255,257,262,266,267,268,271] }
-      ]
-    else if nodes.length > 10
-      return [
-        { label: "first", nodes: [ 0, 1, 2, 3 ] },
-        { label: "second", nodes: [ 4, 5, 6 ] },
-        { label: "third", nodes: [ 7, 8 ] }
-      ]
+    if @display_mode.mode == @display_modes.community
+      # TODO
+      return []
+
     return []
 
   run: () =>
@@ -489,7 +486,7 @@ class XMLSchema
         if @tick_count > @config.tick_limit
           console.log "tick limit "+@config.tick_limit+" reached"
           @tick_count = 0
-          # Force the layout to stop 
+          # Force the layout to stop
           @force.stop()
 
     $("#loader").show();
@@ -656,7 +653,7 @@ class XMLSchema
     .attr('data-selected', true)
 
     if data.cluster
-      console.log "CLUSTER!", data
+      @history_snapshot(@display_mode, @current_filter_node_list)
       this.display(data.nodes)
 
   #show_schema: (data) =>
