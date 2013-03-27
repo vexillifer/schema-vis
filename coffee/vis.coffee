@@ -352,7 +352,7 @@ class XMLSchema
     for cluster, i in clusters
         cluster_nodes[i] = {
           radius: @config.cluster_radius_factor * Math.sqrt(cluster.nodes.length) + @config.cluster_radius_offset,
-          text: cluster.short_label + " ("+cluster.nodes.length+")",
+          text: cluster.short_label,
           label: cluster.label
           x: circle_x(half_width, cluster_circle_const, i),
           y: circle_y(half_height, cluster_circle_const, i)
@@ -408,6 +408,15 @@ class XMLSchema
   display_raw: () =>
     @set_display_mode(@display_modes.raw)
 
+  # converts links from a list of obj <-> obj to "node.idx node.idx\n..."
+  links_to_string: (links) =>
+    idx_links = []
+    for link in links
+      idx_links.push(link.source.idx+" "+link.target.idx)
+
+    idx_links.join("\n")
+
+
   get_clusters: (nodes, links) =>
     # returns the list of clusters where each cluster has length > 1
     validate_clusters = (clusters) ->
@@ -436,13 +445,29 @@ class XMLSchema
       # convert multi array format
       node_clusters = []
       for attribute, cluster of node_map
+        cluster.short_label +=  " ("+cluster.nodes.length+")"
         node_clusters.push(cluster)
 
       return validate_clusters(node_clusters)
 
+    # aggregate by community (edge structure)
     if @display_mode.mode == @display_modes.community
-      # TODO
-      return []
+      # convert links to idx to idx
+      str_links = this.links_to_string(links)
+      clusters = []
+      # do it externally
+      $.ajax({
+        type: "POST",
+        url: "community.php",
+        data: { edges: str_links },
+        dataType: "json",
+        async: false, # necessary since we need to wait for results
+        success: (data) ->
+          for cluster_nodes in data
+            clusters.push({ short_label: cluster_nodes.length, label: cluster_nodes.length, nodes: cluster_nodes})
+        })
+
+      return clusters
 
     return []
 
