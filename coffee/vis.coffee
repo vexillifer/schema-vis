@@ -498,11 +498,10 @@ class XMLSchema
       # convert links to idx to idx
       str_links = this.links_to_string(links)
       clusters = []
-      console.log str_links
       # do it externally
       $.ajax({
         type: "POST",
-        url: "/lib/snap/community/community.php",
+        url: "lib/snap/community/community.php",
         data: { edges: str_links },
         dataType: "json",
         async: false, # necessary since we need to wait for results
