@@ -29,7 +29,11 @@ class XMLSchema
       static_load: 0,
       expand_circles_on_entry: false,
       node_limit: 300,
-      tick_limit: 10, # TODO: set low for faster debugging
+      tick_limit: 50,
+
+
+      # aggregate by attribute options
+      use_global_attributes: false
     }
 
     # The history stack
@@ -66,6 +70,8 @@ class XMLSchema
     @people = []
     @connections = []
     @index  = {}
+    @attributes = []
+
 
     @circles = null
     @visualization = null
@@ -107,17 +113,44 @@ class XMLSchema
       'cy', 'DOMNodeName', 'y', 'py', 'index', 'fixed', 'fill', 'stroke',
       'strokeWidth', 'radius', 'nodes', 'idx', 'weight', 'focus']
 
+    @aggregate_hidden_attributes = ['name', 'uid']
+
+    # initialize attribute aggregation list
+    if @config.use_global_attributes
+      for attribute in @attributes
+        if not (attribute in @aggregate_hidden_attributes)
+          $('#aggr_menu').append("<li><a tabindex=\"-1\">#{attribute}</a></li>");
+
+      # default to having the first option selected
+      $('#aggr_menu > li:first-child a')
+        .css('font-weight', 'bold')
+        .attr('data-selected', true)
+    else
+      $('#aggr_menu').append('<li><a href="javascript:;" class="no-selection">No node selected...</a></li>');
+
+    # delegate click listener (allows one binding even if items are added/removed later)
+    that = this
+    $('#aggr_menu').on("click", "a", () ->
+      if not $(this).hasClass("no-selection")
+        $('#aggr_menu a').removeAttr('data-selected').css('font-weight','normal')
+        $(this).css('font-weight', 'bold').attr('data-selected', true)
+        that.display_aggregate($(this).html())
+    )
+
+
+
   # Compute all nodes and links in network
   # 1) Create a node for each profile
   # 2) Create a link for each connection
   explore_network: (network) =>
     node = {}
-    attrs = ['uid','name','sex','locale']
+    @attributes = ['uid','name','sex','locale','affiliations']
     # these might have been interesting, but only Kalan seems to have data for them
     #,'religion','timezone','relationship_status','wall_count','notes_count']
 
     people = network.firstChild.querySelectorAll('person')
     connections = network.firstChild.querySelectorAll('connection')
+
 
 
     for person, i in people
@@ -128,12 +161,12 @@ class XMLSchema
         if attr.firstChild != null and
         attr.firstChild.nodeType == 3 and
         attr.firstChild.nodeValue.trim() != '' and
-        attr.nodeName in attrs
+        attr.nodeName in @attributes
           node[attr.nodeName] = attr.firstChild.nodeValue
 
         # special case affiliations -- add in first affiliation by name
         if attr.nodeName == "affiliations"
-          node["affiliation"] = attr.querySelector("name")?.firstChild.nodeValue
+          node[attr.nodeName] = attr.querySelector("name")?.firstChild.nodeValue
 
       copy = $.extend({}, node)
       copy.DOMNodeName = copy.name
@@ -738,18 +771,20 @@ class XMLSchema
     # Show details in properties panel
     content = "<table class=\"attr-table\">" # fix this
 
-    $('#aggr_menu').children().remove();
+    if not @config.use_global_attributes
+      $('#aggr_menu').children().remove();
 
     $('#meta_title').html('Person')
     $('#meta_detail').html(data.name)
     $('#meta_schema').show()
 
     for key, value of data
-      if @table_hidden_properties.indexOf(key) == -1
+      if @table_hidden_properties.indexOf(key) == -1 and not (key in @aggregate_hidden_attributes)
         content += "<tr><td><!--<input type=\"checkbox\" id=\"check_#{key}\" />&nbsp;--><span class=\"name\">#{key}</span></td>" +
           "<td><span class=\"pinnable\"> #{value}</span></td></tr>"
 
-        $('#aggr_menu').append("<li><a tabindex=\"-1\">#{key}</a></li>");
+        if not @config.use_global_attributes
+          $('#aggr_menu').append("<li><a tabindex=\"-1\">#{key}</a></li>");
 
     content += "</table>"
 
@@ -759,18 +794,13 @@ class XMLSchema
     $('#meta_schema').unbind('click')
     #$('#meta_schema').click(() => @show_schema(data))
 
-    $('#aggr_menu a').click(() ->
-      $('#aggr_menu a').removeAttr('data-selected').css('font-weight','normal')
-      $(this).css('font-weight', 'bold')
-      $(this).attr('data-selected', true)
-      that.display_aggregate($(this).html())
-    )
 
     # Default attribute to aggregate on is
     # the first one...
-    $('#aggr_menu > li:first-child a')
-    .css('font-weight', 'bold')
-    .attr('data-selected', true)
+    if not @config.use_global_attributes
+      $('#aggr_menu > li:first-child a')
+      .css('font-weight', 'bold')
+      .attr('data-selected', true)
 
   # assumes data represents a cluster (i.e. data.cluster = true)
   select_cluster: (data) =>
