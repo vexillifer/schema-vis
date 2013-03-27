@@ -137,6 +137,11 @@ class XMLSchema
         that.display_aggregate($(this).html())
     )
 
+    # syntax highlight code
+    code = $("#schema_modal_code").html()
+    highlighted_code = hljs.highlight("xml", code).value;
+    $("#schema_modal_code").html(highlighted_code)
+
 
 
   # Compute all nodes and links in network
@@ -150,8 +155,6 @@ class XMLSchema
 
     people = network.firstChild.querySelectorAll('person')
     connections = network.firstChild.querySelectorAll('connection')
-
-
 
     for person, i in people
       if @config.node_limit? and i > @config.node_limit then break
