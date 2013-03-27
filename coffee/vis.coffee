@@ -113,6 +113,8 @@ class XMLSchema
   explore_network: (network) =>
     node = {}
     attrs = ['uid','name','sex','locale']
+    # these might have been interesting, but only Kalan seems to have data for them
+    #,'religion','timezone','relationship_status','wall_count','notes_count']
 
     people = network.firstChild.querySelectorAll('person')
     connections = network.firstChild.querySelectorAll('connection')
@@ -128,6 +130,11 @@ class XMLSchema
         attr.firstChild.nodeValue.trim() != '' and
         attr.nodeName in attrs
           node[attr.nodeName] = attr.firstChild.nodeValue
+
+        # special case affiliations -- add in first affiliation by name
+        if attr.nodeName == "affiliations"
+          node["affiliation"] = attr.querySelector("name")?.firstChild.nodeValue
+
       copy = $.extend({}, node)
       copy.DOMNodeName = copy.name
 
@@ -184,7 +191,7 @@ class XMLSchema
     # create new item
     $("<li>"+this.mode_string()+"</li>")
       .on("click", (event) =>
-        this.history_go($(event.target).data("frame")))
+        this.history_go($(event.currentTarget).data("frame")))
       .appendTo("#context");
 
   add_context_detail: (detail) =>
