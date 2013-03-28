@@ -16,6 +16,7 @@ class XMLSchema
       line_stroke: '#aaaaaa',
       line_stroke_opacity: 1,
       show_foci: false,
+      text_font_size: 12
 
       cluster_radius_factor: 4
       cluster_radius_offset: 5
@@ -29,7 +30,7 @@ class XMLSchema
       static_load: 0,
       expand_circles_on_entry: false,
       node_limit: 300,
-      tick_limit: 50,
+      tick_limit: 10,
 
 
       # aggregate by attribute options
@@ -113,7 +114,7 @@ class XMLSchema
       'cy', 'DOMNodeName', 'y', 'py', 'index', 'fixed', 'fill', 'stroke',
       'strokeWidth', 'radius', 'nodes', 'idx', 'weight', 'focus']
 
-    @aggregate_hidden_attributes = ['name', 'uid']
+    @aggregate_hidden_attributes = ['name', 'uid', 'friend_count', 'likes_count', 'wall_count']
 
     # initialize attribute aggregation list
     if @config.use_global_attributes
@@ -149,12 +150,19 @@ class XMLSchema
   # 2) Create a link for each connection
   explore_network: (network) =>
     node = {}
-    @attributes = ['uid','name','sex','locale','affiliations']
-    # these might have been interesting, but only Kalan seems to have data for them
-    #,'religion','timezone','relationship_status','wall_count','notes_count']
+    @attributes = ['uid','name','sex','locale','affiliations',
+    'age', 'country', 'state', 'city', 'school', 'major', 'friend_count',
+    'hometown', 'languages','likes_count', 'wall_count', 'political', 'religion',
+    'relationship_status', 'work', 'includes_family']
+    # likes_count = # of pages user likes
+    # wall_count = number of wall posts
+    # includes_family = has family relationships defined on facebook
 
     people = network.firstChild.querySelectorAll('person')
     connections = network.firstChild.querySelectorAll('connection')
+
+    get_child_value = (parent, child) ->
+      parent.querySelector(child)?.firstChild.nodeValue
 
     for person, i in people
       if @config.node_limit? and i > @config.node_limit then break
@@ -167,10 +175,35 @@ class XMLSchema
         attr.nodeName in @attributes
           node[attr.nodeName] = attr.firstChild.nodeValue
 
-        # special case affiliations -- add in first affiliation by name
-        if attr.nodeName == "affiliations"
-          node[attr.nodeName] = attr.querySelector("name")?.firstChild.nodeValue
-
+        # attribute special cases
+        switch attr.nodeName
+          when "affiliations"
+            # special case affiliations -- add in first affiliation by name
+            node[attr.nodeName] = get_child_value(attr, "name")
+          when "birthday_date"
+            if attr.firstChild?.nodeValue.length > 5 # some are MM/DD and others MM/DD/YYYY
+              date = attr.firstChild.nodeValue
+              node["age"] = 2013 - parseInt(date.substring(date.length - 4));
+          when "current_location"
+            node['country'] = get_child_value(attr, "country")
+            node['city'] = get_child_value(attr, "city")
+            node['state'] = get_child_value(attr, "state")
+          when "education"
+            node['school']  = get_child_value(attr, "school name")
+            node['major']  = get_child_value(attr, "concentration name")
+          when "hometown_location"
+            if attr.firstChild?
+              node['hometown'] = get_child_value(attr, "city") + ", "+get_child_value(attr, "state");
+          when "languages"
+            if node['languages'] == undefined
+              node['languages'] = get_child_value(attr, "name")
+          when "sports"
+            node['sports'] = get_child_value(attr, "name")
+          when "work"
+            if node['work'] == undefined
+              node['work'] = get_child_value(attr, "employer name")
+          when "family"
+            node['includes_family'] = true
       copy = $.extend({}, node)
       copy.DOMNodeName = copy.name
 
@@ -606,6 +639,7 @@ class XMLSchema
       .attr(      'style', (d) => d.textStyle or $this.config.node_text_style)
       .attr(      'focus', (d) => d.focus or 0)
       .attr(  'collapsed', 'false')
+      .attr('font-size', $this.config.text_font_Size)
       .text(       (d) =>  d.DOMNodeName or d.text or '')
 
     # circle expand transitions
@@ -696,6 +730,9 @@ class XMLSchema
         .selectAll("circle")
           .attr("stroke-width", if d3.event.scale > 1 then @config.node_stroke_width/d3.event.scale else @config.node_stroke_width)
           .attr("r", (d) -> if d3.event.scale > 1 then d.radius/d3.event.scale else d.radius)
+
+      @circles.selectAll("text")
+          .attr("font-size", if d3.event.scale > 1 then @config.text_font_size/d3.event.scale else @config.text_font_size)
 
       @lines.attr("transform", "translate(" + d3.event.translate + ") " +
         "scale(" + d3.event.scale + ")")
@@ -997,5 +1034,6 @@ $ ->
   root.display_all = () =>
     chart.display()
 
-  d3.xml "data/FB-RAW-3.xml", render_vis
+#  d3.xml "data/FB-RAW-3.xml", render_vis
+  d3.xml "data/FB_Peter_combined.xml", render_vis
 

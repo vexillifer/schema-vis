@@ -16,7 +16,6 @@ if(isset($_POST['edges'])) {
         // write edges to graph format and run SNAP community detection
         // NOTE: we need write permissinos on comm_input and comm_output
         // otherwise we get really annoying and hard to find errors.
-
         $comm_input = "comm_input.txt";
         $comm_output = "comm_output.txt";
         $fh = fopen($comm_input, 'w');
