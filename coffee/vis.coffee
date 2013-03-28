@@ -33,7 +33,7 @@ class XMLSchema
 
 
       # aggregate by attribute options
-      use_global_attributes: false
+      use_global_attributes: true
     }
 
     # The history stack
@@ -510,7 +510,7 @@ class XMLSchema
             clusters.push({ short_label: cluster_nodes.length, label: cluster_nodes.length, nodes: cluster_nodes})
         })
 
-      return clusters
+      return validate_clusters(clusters)
 
     return []
 
@@ -809,7 +809,7 @@ class XMLSchema
   select_cluster: (data) =>
     this.add_context_detail(data.text);
     @history_snapshot(@display_mode, @current_context)
-    if @display_mode.mode == @display_modes.attribute
+    if @display_mode.mode != @display_modes.raw
       this.set_display_mode(@display_modes.raw, null, false) # do not redraw
 
     this.display(data)
