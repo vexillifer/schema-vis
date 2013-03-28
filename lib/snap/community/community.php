@@ -1,6 +1,7 @@
 <?php
 
 if(isset($_POST['edges'])) {
+    $edges = $_POST['edges'];
 
     // write edges to graph format and run SNAP community detection
     $comm_input = "comm_input.txt";
@@ -24,10 +25,10 @@ if(isset($_POST['edges'])) {
         // Filter out meta data
         if (preg_match("/#/", $line) === 0) {
             $parts = preg_split('/\s/', $line);
-            if ($parts[1] === strval($cluster_num)) {
+            if (count($parts) > 1 && $parts[1] === strval($cluster_num)) {
                 $cluster[] = $parts[0];
             } else {
-                // begin next cluster  
+                // begin next cluster
                 $clusters[] = $cluster;
                 $cluster = array();
                 $cluster_num++;
