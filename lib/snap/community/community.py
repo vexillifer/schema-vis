@@ -1,15 +1,21 @@
 import json
+import os
+import hashlib
 import subprocess
-from bottle import route, run, request, template
+from bottle import route, run, request, static_file, template
 
 @route('/community', method='POST')
 def index():
     clusters = []
     cluster_map = {}
 
+    tag = 'cache/comm_output_%s.txt' % hashlib.md5().update(request.body.read())
+    if os.path.exists(tag):
+        return static_file(tag)
+
+    request.body.seek(0)
+
     try:
-        # Requires community.cpp be tweaked so that
-        # input is read from stdin and output goes to stdout, no files!!!!
         output = subprocess.check_output('./community -a:1', stdin=request.body)
     except:
         return json.dumps({'status': False})
@@ -27,7 +33,12 @@ def index():
     for cluster in c_map:
         clusters.append(c_map[cluster])
 
-    # output json
-    return json.dumps({'status': True, 'communities': clusters})
+    # (cache and) output json
+    json = json.dumps({'status': True, 'communities': clusters})
+    cache = open(tag, 'w+')
+    cache.write(json)
+    cache.close()
+
+    return json
 
 run(host='localhost', port=8080)
