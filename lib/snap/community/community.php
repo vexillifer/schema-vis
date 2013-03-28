@@ -3,17 +3,31 @@
 if(isset($_POST['edges'])) {
     $edges = $_POST['edges'];
 
-    // write edges to graph format and run SNAP community detection
-    $comm_input = "comm_input.txt";
-    $fh = fopen($comm_input, 'w');
-    fwrite($fh, $edges);
-    fclose($fh);
+    $hash = md5($edges);
+    $cached_file = "cache/comm_output_".$hash.".txt";
+    $fh = null;
 
-    exec("./community -i:comm_input.txt -o:comm_output.txt -a:1");
+    // check for cached solution
+    if(false && file_exists($cached_file)) {
+        $fh = fopen($cached_file);
+    } else {
+        // write edges to graph format and run SNAP community detection
+        $comm_input = "comm_input.txt";
+        $comm_output = "comm_output.txt";
 
-    // Load output and parse results
-    $comm_output = "comm_output.txt";
-    $fh = fopen($comm_output, 'r');
+        $fh = fopen($comm_input, 'w'); // NOTE: we need write permissinos on comm_input
+        fwrite($fh, $edges);
+        fclose($fh);
+
+        exec("./community -i:$comm_input -o:$comm_output -a:1");
+
+        // cache the result
+        copy($comm_output, $cached_file);
+
+        // Load output and parse results
+        $fh = fopen($comm_output, 'r');
+    }
+
 
     $cluster = array();
     $clusters = array();
