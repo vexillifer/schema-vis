@@ -9,7 +9,7 @@ def index():
     clusters = []
     cluster_map = {}
 
-    tag = 'cache/comm_output_%s.txt' % hashlib.md5().update(request.body.read())
+    tag = 'cache/comm_output_%s.txt' % hashlib.md5(request.body.read()).hexdigest()
     if os.path.exists(tag):
         return static_file(tag)
 
