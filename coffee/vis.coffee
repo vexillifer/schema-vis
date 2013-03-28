@@ -18,6 +18,8 @@ class XMLSchema
       show_foci: false,
       text_font_size: 12
 
+      anonymize_names: false
+
       cluster_radius_factor: 4
       cluster_radius_offset: 5
 
@@ -167,6 +169,7 @@ class XMLSchema
     for person, i in people
       if @config.node_limit? and i > @config.node_limit then break
       node = {}
+      name = null
       for attr in person.childNodes
         # look for attribute-esque children
         if attr.firstChild != null and
@@ -204,11 +207,15 @@ class XMLSchema
               node['work'] = get_child_value(attr, "employer name")
           when "family"
             node['includes_family'] = true
+          when "name"
+            name = attr.firstChild.nodeValue
+            if @config.anonymize_names
+              node['name'] = "Person " + i
       copy = $.extend({}, node)
       copy.DOMNodeName = copy.name
 
       copy.idx = i
-      @index[copy.name] = copy
+      @index[name] = copy
       @people.push(copy)
 
 
