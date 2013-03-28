@@ -8,7 +8,7 @@ if(isset($_POST['edges'])) {
     $fh = null;
 
     // check for cached solution
-    if(false && file_exists($cached_file)) {
+    if(file_exists($cached_file)) {
         $fh = fopen($cached_file);
     } else {
         // write edges to graph format and run SNAP community detection
