@@ -32,7 +32,7 @@ class XMLSchema
       static_load: 0,
       expand_circles_on_entry: false,
       node_limit: 300,
-      tick_limit: 10,
+      tick_limit: 100,
 
 
       # aggregate by attribute options
@@ -390,7 +390,8 @@ class XMLSchema
 
       if is_node_visible node
         node.radius = @config.node_radius
-        node.text = ''
+        node.text = node.name
+        node.textStyle = 'display: none'
         node.DOMNodeName = ''
         node.x = circle_x(half_width, circle_const, i)
         node.y = circle_y(half_height, circle_const, i)
@@ -443,7 +444,7 @@ class XMLSchema
           nodes: cluster.nodes, # the array of node idx that this cluster contains
           focus: i+1 # +1 since 0 is center
           fill: @get_colour(i)
-          stroke: d3.rgb(@get_colour(i)).darker(1).toString()
+          stroke: d3.rgb(@get_colour(i)).darker(1).toString(),
         }
         cluster_nodes[i].px = cluster_nodes[i].x
         cluster_nodes[i].py = cluster_nodes[i].y
@@ -740,6 +741,7 @@ class XMLSchema
 
       @circles.selectAll("text")
           .attr("font-size", if d3.event.scale > 1 then @config.text_font_size/d3.event.scale else @config.text_font_size)
+          .attr("style", (d) -> if d3.event.scale > 2 then "" else d.textStyle)
 
       @lines.attr("transform", "translate(" + d3.event.translate + ") " +
         "scale(" + d3.event.scale + ")")
