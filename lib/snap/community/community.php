@@ -9,17 +9,22 @@ if(isset($_POST['edges'])) {
 
     // check for cached solution
     if(file_exists($cached_file)) {
-        $fh = fopen($cached_file);
+
+        $fh = fopen($cached_file, 'r');
     } else {
+
         // write edges to graph format and run SNAP community detection
+        // NOTE: we need write permissinos on comm_input and comm_output
+        // otherwise we get really annoying and hard to find errors.
+
         $comm_input = "comm_input.txt";
         $comm_output = "comm_output.txt";
-
-        $fh = fopen($comm_input, 'w'); // NOTE: we need write permissinos on comm_input
+        $fh = fopen($comm_input, 'w');
         fwrite($fh, $edges);
         fclose($fh);
-
-        exec("./community -i:$comm_input -o:$comm_output -a:1");
+        $output = array();
+        $return_val = null;
+        exec("./community -i:$comm_input -o:$comm_output -a:1 2>&1", $output, $return_val);
 
         // cache the result
         copy($comm_output, $cached_file);

@@ -1,0 +1,23 @@
+# Input: comm_input.txt
+# Nodes: 17    Edges: 0
+# Algoritm: Girvan-Newman
+# Modularity: 0.048000
+# Communities: 7
+# NId	CommunityId
+0	0
+37	0
+80	0
+85	0
+124	0
+128	0
+132	0
+151	0
+182	0
+220	0
+249	0
+246	1
+245	2
+107	3
+57	4
+33	5
+29	6
