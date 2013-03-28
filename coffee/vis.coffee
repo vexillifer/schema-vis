@@ -783,7 +783,7 @@ class XMLSchema
 
     for key, value of data
       if @table_hidden_properties.indexOf(key) == -1 and not (key in @aggregate_hidden_attributes)
-        content += "<tr><td><!--<input type=\"checkbox\" id=\"check_#{key}\" />&nbsp;--><span class=\"name\">#{key}</span></td>" +
+        content += "<tr><td><span class=\"name\">#{key}</span></td>" +
           "<td><span class=\"pinnable\"> #{value}</span></td></tr>"
 
         if not @config.use_global_attributes
@@ -824,7 +824,29 @@ class XMLSchema
       return "<tr><td><span class=\"name\">#{attr}</span></td>" +
           "<td><span class=\"pinnable\"> #{value}</span></td></tr>"
 
-    content += contentRow("# nodes", data.nodes.length)
+    avg_num_links = 0
+    central_figures = []
+
+    # approximate centrality
+    for idx in data.nodes
+      node = @nodes[idx]
+      if typeof node == 'undefined'
+        continue
+
+      rank = 0
+      for link in @links
+        if link.target.name == node.name
+          rank++
+      central_figures.push([node.name, rank])
+
+    central_figures.sort((a, b) => return b[1] - a[1])
+    central_figures = central_figures.slice(0, 3).map((e) => return e[0])
+
+    avg_num_links = Math.floor(@links.length / data.nodes.length)
+
+    content += contentRow("num. nodes", data.nodes.length)
+    content += contentRow("avg. links", avg_num_links)
+    content += contentRow("cen. figures", central_figures.join(', '))
     for key, value of data
       if @table_hidden_properties.indexOf(key) == -1
         content += contentRow(key, value)
