@@ -869,6 +869,11 @@ class XMLSchema
   update_view_detail: (data) =>
     console.log("updating view detail!", data);
 
+    if data?
+      $("#view_title").html("Cluster Details")
+    else
+      $("#view_title").html("Details")
+
     if data?.label?
       $("#view_detail").html(data.label)
     else
