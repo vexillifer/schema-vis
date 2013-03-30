@@ -874,6 +874,7 @@ class XMLSchema
     else
       $("#view_detail").html("")
 
+    $("#view_attr").empty();
     $content = $("<table class=\"attr-table\"/>").appendTo("#view_attr")
 
     contentRow = (attr, value) ->
