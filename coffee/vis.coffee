@@ -110,11 +110,11 @@ class XMLSchema
     @table_hidden_properties  = ['children', '_children', 'x', 'y', 'px', 'cx',
       'cy', 'DOMNodeName', 'y', 'py', 'index', 'fixed', 'fill', 'stroke',
       'strokeWidth', 'radius', 'nodes','name','cluster', 'text', 'idx', 'focus',
-      'weight', 'label']
+      'weight', 'label', 'textStyle']
 
     @tooltip_hidden_properties  = ['children', '_children', 'x', 'y', 'px', 'cx',
       'cy', 'DOMNodeName', 'y', 'py', 'index', 'fixed', 'fill', 'stroke',
-      'strokeWidth', 'radius', 'nodes', 'idx', 'weight', 'focus']
+      'strokeWidth', 'radius', 'nodes', 'idx', 'weight', 'focus', 'text', 'textStyle']
 
     @aggregate_hidden_attributes = ['name', 'uid', 'friend_count', 'likes_count', 'wall_count']
 
