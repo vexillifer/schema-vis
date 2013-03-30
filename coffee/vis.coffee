@@ -31,7 +31,7 @@ class XMLSchema
       # performance otions
       static_load: 0,
       expand_circles_on_entry: false,
-      node_limit: 300,
+      node_limit: 1000,
       tick_limit: 100,
 
 
@@ -145,6 +145,14 @@ class XMLSchema
     highlighted_code = hljs.highlight("xml", code).value;
     $("#schema_modal_code").html(highlighted_code)
 
+
+    # allow selecting of nodes
+    $("#prop_panel").on "click", ".select-node", (event) ->
+      node = $(this).data('node')
+      if node?
+        that.toggle_node(node, node.idx, $("#node_"+node.idx).get(0))
+      else
+        console.log "Warning: .select-node with no node data", this
 
 
   # Compute all nodes and links in network
@@ -471,14 +479,11 @@ class XMLSchema
     # remove self links
     @links = _.filter(@links, (link) -> link.source != link.target)
 
-    # see if we need to display the cluster context
-    if context?
-      this.show_cluster_detail(context)
-    else
-      this.hide_cluster_detail()
-
+    # update the view details
+    this.update_view_detail(context)
 
     @run()
+
 
   display_aggregate: (attr) =>
     if attr and attr.trim().length != 0
@@ -623,9 +628,11 @@ class XMLSchema
       .attr('class',   (d) -> if d.cluster then "node cluster" else "node")
       .attr('x', (d,i) -> d.x or $this.center.x)
       .attr('y', (d,i) -> d.y or $this.center.y)
+      .attr('id', (d, i) -> 'node_'+d.idx)
       .on('mouseover', (d,i) -> $this.show_details(d,i,this))
       .on( 'mouseout', (d,i) -> $this.hide_details(d,i,this))
       .on(    'click', (d,i) -> $this.toggle_node(d,i,this))
+
       .call(@node_drag)
 
     # create node circles
@@ -637,7 +644,6 @@ class XMLSchema
       .attr(   'collapsed', 'false')
       .attr(           'cx', (d, i) => d.x or $this.center.x)
       .attr(           'cy', (d, i) => d.y or $this.center.y)
-      .attr(           'id', (d, i) -> 'bubble_'+i)
 
 
     # create node labels
@@ -860,49 +866,65 @@ class XMLSchema
 
     this.display(data)
 
-  show_cluster_detail: (data) =>
-    # show the cluster detail
-    $("#cluster_detail").html(data.label)
+  update_view_detail: (data) =>
+    console.log("updating view detail!", data);
 
-    content = "<table class=\"attr-table\">"
+    if data?.label?
+      $("#view_detail").html(data.label)
+    else
+      $("#view_detail").html("")
+
+    $content = $("<table class=\"attr-table\"/>").appendTo("#view_attr")
 
     contentRow = (attr, value) ->
-      return "<tr><td><span class=\"name\">#{attr}</span></td>" +
-          "<td><span class=\"pinnable\"> #{value}</span></td></tr>"
+      console.log("adding row ", attr, value);
+      $content.append("<tr><td><span class=\"name\">#{attr}</span></td>" +
+          "<td><span class=\"pinnable\"> #{value}</span></td></tr>");
+      console.log("added row");
 
     avg_num_links = 0
     central_figures = []
 
-    # approximate centrality
-    for idx in data.nodes
-      node = @nodes[idx]
-      if typeof node == 'undefined'
-        continue
+    nodes = @nodes
 
-      rank = 0
-      for link in @links
-        if link.target.name == node.name
-          rank++
-      central_figures.push([node.name, rank])
+    # basic stats
+    avg_num_links = Math.floor(@links.length / nodes.length)
 
-    central_figures.sort((a, b) => return b[1] - a[1])
-    central_figures = central_figures.slice(0, 3).map((e) => return e[0])
+    contentRow("num. nodes", nodes.length)
+    contentRow("avg. links", avg_num_links)
 
-    avg_num_links = Math.floor(@links.length / data.nodes.length)
 
-    content += contentRow("num. nodes", data.nodes.length)
-    content += contentRow("avg. links", avg_num_links)
-    content += contentRow("cen. figures", central_figures.join(', '))
+    # do not show centrality if there are clusters.
+    has_clusters = _.any(nodes, (node) -> return node.cluster)
+    if not has_clusters
+      # approximate centrality
+      for node in nodes
+
+        rank = 0
+        for link in @links
+          if link.target.name == node.name
+            rank++
+        central_figures.push([node, rank])
+
+      central_figures.sort((a, b) => return b[1] - a[1])
+      central_figures = central_figures.slice(0, 3).map((e) => return e[0])
+
+      # make central figures clickable
+      figures = _.map central_figures, (node) ->
+        return $("<span class='clickable select-node'>"+node.name+"</span>").data("node", node);
+
+      $figures_row = $("<tr><td><span class=\"name\">cen. figures</span></td>" +
+          "<td><span class=\"pinnable\"></span></td></tr>");
+      $content.append($figures_row)
+      $cen_fig_span = $figures_row.find("span").last()
+      for figure in figures
+        $cen_fig_span.append(figure);
+
+
     for key, value of data
       if @table_hidden_properties.indexOf(key) == -1
-        content += contentRow(key, value)
+        contentRow(key, value)
 
-    content += "</table>"
-    $("#cluster_attr").html(content)
-    $("#prop_cluster").fadeIn();
-
-  hide_cluster_detail: () ->
-    $("#prop_cluster").hide()
 
   # Remove node from 'focus'
   clear_selection: () =>
