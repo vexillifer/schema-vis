@@ -172,3 +172,16 @@ footer {
   color: #666;
   font-style: italic;
 }
+
+.clickable {
+  cursor: pointer;
+}
+
+.central-figure {
+  white-space: nowrap;
+  display: block;
+}
+
+.central-figure:hover {
+  font-weight: bold;
+}

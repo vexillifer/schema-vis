@@ -911,7 +911,7 @@ class XMLSchema
 
       # make central figures clickable
       figures = _.map central_figures, (node) ->
-        return $("<span class='clickable select-node'>"+node.name+"</span>").data("node", node);
+        return $("<span class='clickable select-node central-figure'>"+node.name+"</span>").data("node", node);
 
       $figures_row = $("<tr><td><span class=\"name\">cen. figures</span></td>" +
           "<td><span class=\"pinnable\"></span></td></tr>");
