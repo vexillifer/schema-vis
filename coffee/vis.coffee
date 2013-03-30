@@ -903,7 +903,7 @@ class XMLSchema
 
         rank = 0
         for link in @links
-          if link.target.name == node.name
+          if link.target.name == node.name || link.source.name == node.name
             rank++
         central_figures.push([node, rank])
 
