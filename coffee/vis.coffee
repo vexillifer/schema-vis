@@ -31,7 +31,7 @@ class XMLSchema
       # performance otions
       static_load: 0,
       expand_circles_on_entry: false,
-      node_limit: null,
+      node_limit: 4000,
       tick_limit: 100,
 
 
@@ -1138,8 +1138,19 @@ root = exports ? this
 $ ->
   chart = null
 
-  mode = "twitter"
-  #mode = "facebook"
+  # interpret mode from ?dataset=x where x=1 facebook, x=2 twitter, x=?? testdata
+  dataset = window.location.search.match("dataset=(.)");
+
+  if dataset?
+    if dataset[1] == "1"
+      mode = "facebook"
+    else if dataset[1] == "2"
+      mode = "twitter"
+    else
+      mode = "test"
+  else
+    mode = "facebook"
+
   init = (mode) ->
     if mode == "facebook"
       data_file = "data/FB_Peter_combined.xml"
