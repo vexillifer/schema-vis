@@ -57,9 +57,12 @@ footer {
 
 .attr-table {
   table-layout: fixed;
-  width: 200px;
+  width: 100%;
 }
 
+.attr-table td:first-child {
+  width: 87px;
+}
 .attr-table td{
   padding: 5px;
 }
@@ -75,7 +78,7 @@ footer {
 
 .prop_panel {
   position: absolute;
-  width: 180px;
+  width: 250px;
   top: 20px;
   right: 50px;
   font-size: 13px;
@@ -108,11 +111,18 @@ footer {
   font-weight:bold;
 }
 
-#viz1_btn, #viz2_btn, #reset_btn {
-  width: 150px;
+#prop_ctrl > button, #prop_ctrl > .btn-group {
+  width: 220px;
+  display: block;
+  margin: 0 auto 12px;
 }
 #viz3_btn {
-  width: 125px;
+  width: 195px;
+}
+
+#prop_ctrl > #reset_btn {
+  margin-top: 20px;
+  margin-bottom: 0;
 }
 
 .prop_panel .pin {
@@ -184,4 +194,9 @@ footer {
 
 .central-figure:hover {
   font-weight: bold;
+}
+
+#subgraph_btn {
+  margin: 4px auto 10px;
+  display: block;
 }

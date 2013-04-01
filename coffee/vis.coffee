@@ -110,7 +110,7 @@ class XMLSchema
     @table_hidden_properties  = ['children', '_children', 'x', 'y', 'px', 'cx',
       'cy', 'DOMNodeName', 'y', 'py', 'index', 'fixed', 'fill', 'stroke',
       'strokeWidth', 'radius', 'nodes','name','cluster', 'text', 'idx', 'focus',
-      'weight', 'label', 'textStyle']
+      'weight', 'label', 'textStyle', 'subgraph']
 
     @tooltip_hidden_properties  = ['children', '_children', 'x', 'y', 'px', 'cx',
       'cy', 'DOMNodeName', 'y', 'py', 'index', 'fixed', 'fill', 'stroke',
@@ -150,7 +150,7 @@ class XMLSchema
     $("#prop_panel").on "click", ".select-node", (event) ->
       node = $(this).data('node')
       if node?
-        that.toggle_node(node, node.idx, $("#node_"+node.idx).get(0))
+        that.toggle_node(node)
       else
         console.log "Warning: .select-node with no node data", this
 
@@ -163,10 +163,10 @@ class XMLSchema
     @attributes = ['uid','name','sex','locale','affiliations',
     'age', 'country', 'state', 'city', 'school', 'major', 'friend_count',
     'hometown', 'languages','likes_count', 'wall_count', 'political', 'religion',
-    'relationship_status', 'work', 'includes_family']
+    'relationship_status', 'work', 'has_family']
     # likes_count = # of pages user likes
     # wall_count = number of wall posts
-    # includes_family = has family relationships defined on facebook
+    # has_family = has family relationships defined on facebook
 
     people = network.firstChild.querySelectorAll('person')
     connections = network.firstChild.querySelectorAll('connection')
@@ -214,7 +214,7 @@ class XMLSchema
             if node['work'] == undefined
               node['work'] = get_child_value(attr, "employer name")
           when "family"
-            node['includes_family'] = true
+            node['has_family'] = true
           when "name"
             name = attr.firstChild.nodeValue
             if @config.anonymize_names
@@ -358,6 +358,7 @@ class XMLSchema
 
   # filter node list is an array of nodes that are visible, typically the contents of a cluster
   # if empty, all of @people is used
+  # optional argument context is of form: { nodes: [idx1, idx2, ... ], [cluster: true], [label: "x = y"] }
   display: (context) =>
     console.log "display()"
     @reset()
@@ -471,9 +472,11 @@ class XMLSchema
       target_cluster = node_cluster_map[link.target.idx]
 
       if source_cluster?
+        link.cluster_node = link.source # save the actual node for subgraphs
         link.source = cluster_nodes[source_cluster]
 
       if target_cluster?
+        link.cluster_node = link.target # save the actual node for subgraphs
         link.target = cluster_nodes[target_cluster]
 
     # remove self links
@@ -489,11 +492,9 @@ class XMLSchema
     if attr and attr.trim().length != 0
       @set_display_mode(@display_modes.attribute, attr);
 
-  # TODO: implement me!
   display_communities: () =>
     @set_display_mode(@display_modes.community)
 
-  # TODO: implement me!
   display_raw: () =>
     @set_display_mode(@display_modes.raw)
 
@@ -794,9 +795,11 @@ class XMLSchema
   output_marked_nodes: () =>
     console.log $.makeArray($("circle[marked]").map(() -> parseInt(this.attributes.idx.value))).join()
 
-  toggle_node: (data, i, element) =>
+  toggle_node: (data, i, element, stop = true) =>
+    # make the damn thing stop moving when something is clicked.
+    if stop then @force.stop()
+
     if data == @focused_node_data # clicking the selected node
-      @force.stop()
       this.clear_selection()
     else
       this.select_node(data, i, element)
@@ -804,11 +807,13 @@ class XMLSchema
   # Make the selected node 'focused'
   # Apply style and show meta data
   select_node: (data, i, element) =>
+    if not i?
+      i = data.idx
+    if not element?
+      element = $("#node_"+i).get(0)
+
     # create that to preserve this within d3 select each call
     that = this
-
-    # make the damn thing stop moving when something is clicked.
-    @force.stop()
 
     # revert previously selected
     this.clear_selection()
@@ -858,7 +863,7 @@ class XMLSchema
     content += "</table>"
 
     $('#meta_attr').html(content)
-    $('#prop_meta').fadeIn();
+    $('#prop_meta').fadeIn().data("node", data);
 
     $('#meta_schema').unbind('click')
     #$('#meta_schema').click(() => @show_schema(data))
@@ -880,6 +885,43 @@ class XMLSchema
 
     this.display(data)
 
+  select_subgraph: (node) =>
+    # nodes are this node + neighbours
+    nodes = [node.idx].concat(this.get_neighbours(node))
+
+    subgraph = {
+      nodes: nodes
+      label: node.name
+      subgraph: true
+    }
+
+    this.add_context_detail("Subgraph: "+node.name);
+    @history_snapshot(@display_mode, @current_context)
+    if @display_mode.mode != @display_modes.raw
+      this.set_display_mode(@display_modes.raw, null, false) # do not redraw
+
+    this.display(subgraph)
+    this.select_node(node)
+
+  # returns an array of node idx representing neighbours
+  get_neighbours: (node) =>
+    links = this.get_links(node)
+    neighbours = []
+    for link in links
+      # don't link to cluster, link to the original node
+      if link.cluster_node?
+        neighbour_name = link.cluster_node.name
+      else if link.target.name == node.name
+        neighbour_name = link.source.name
+      else
+        neighbour_name = link.target.name
+
+      neighbours.push(this.get_node(neighbour_name).idx)
+    neighbours
+
+  get_node: (node_name) =>
+    return @index[node_name]
+
   get_links: (node) =>
     node_links = []
     for link in @links
@@ -896,26 +938,24 @@ class XMLSchema
     return count
 
   update_view_detail: (data) =>
-    console.log("updating view detail!", data);
-
-    if data?
+    if data?.cluster
       $("#view_title").html("Cluster Details")
+    else if data?.subgraph
+      $("#view_title").html("Subgraph Details")
     else
       $("#view_title").html("Details")
 
     if data?.label?
-      $("#view_detail").html(data.label)
+      $("#view_detail").html(data.label).show()
     else
-      $("#view_detail").html("")
+      $("#view_detail").html("").hide()
 
     $("#view_attr").empty();
     $content = $("<table class=\"attr-table\"/>").appendTo("#view_attr")
 
     contentRow = (attr, value) ->
-      console.log("adding row ", attr, value);
       $content.append("<tr><td><span class=\"name\">#{attr}</span></td>" +
           "<td><span class=\"pinnable\"> #{value}</span></td></tr>");
-      console.log("added row");
 
     avg_num_links = 0
     central_figures = []
@@ -1090,6 +1130,9 @@ $ ->
     $('#viz3_btn').click(() =>
       chart.display_aggregate($('#aggr_menu a[data-selected="true"]').html())
     )
+
+    $("#subgraph_btn").click(() => chart.select_subgraph($("#prop_meta").data("node")))
+
     # Back button
     window.onpopstate = (e)   => chart.history_popstate(e)
 
