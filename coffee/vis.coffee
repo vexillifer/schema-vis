@@ -74,6 +74,7 @@ class XMLSchema
     @connections = []
     @index  = {}
     @attributes = []
+    @separator_attributes = [] # when adding these to the dropdown, insert a separator first
 
 
     @circles = null
@@ -122,6 +123,9 @@ class XMLSchema
     if @config.use_global_attributes
       for attribute in @attributes
         if not (attribute in @aggregate_hidden_attributes)
+          if attribute in @separator_attributes
+            $("#aggr_menu").append('<li class="divider"></li>'); # add in a line separating items
+
           $('#aggr_menu').append("<li><a tabindex=\"-1\">#{attribute}</a></li>");
 
       # default to having the first option selected
@@ -160,10 +164,13 @@ class XMLSchema
   # 2) Create a link for each connection
   explore_network: (network) =>
     node = {}
-    @attributes = ['uid','name','sex','locale','affiliations',
-    'age', 'country', 'state', 'city', 'school', 'major', 'friend_count',
-    'hometown', 'languages','likes_count', 'wall_count', 'political', 'religion',
-    'relationship_status', 'work', 'has_family']
+    @attributes = ['uid','name',
+      'sex','age','relationship','has_family',
+      'affiliations','school','major','work',
+      'city','state','country','hometown',
+      'locale','languages','political','religion'
+      'friend_count','likes_count','wall_count']
+    @separator_attributes = ['affiliations','city','locale','friend_count']
     # likes_count = # of pages user likes
     # wall_count = number of wall posts
     # has_family = has family relationships defined on facebook
@@ -219,6 +226,9 @@ class XMLSchema
             name = attr.firstChild.nodeValue
             if @config.anonymize_names
               node['name'] = "Person " + i
+          when "relationship_status" #rename to shorter 'relationship'
+            node["relationship"] = attr.firstChild?.nodeValue
+
       copy = $.extend({}, node)
       copy.DOMNodeName = copy.name
 
