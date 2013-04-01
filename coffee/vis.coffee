@@ -3,9 +3,9 @@
 # Peter Beshai, March 2013
 
 class XMLSchema
-  constructor: (data) ->
-
+  constructor: (data, mode) ->
     # default vis style settings
+    @mode = mode
     @config = {
       node_fill: '#8b9dc3',
       node_stroke: '#3b5998',
@@ -31,12 +31,13 @@ class XMLSchema
       # performance otions
       static_load: 0,
       expand_circles_on_entry: false,
-      node_limit: 1000,
+      node_limit: null,
       tick_limit: 100,
 
 
       # aggregate by attribute options
       use_global_attributes: true
+
     }
 
     # The history stack
@@ -117,7 +118,7 @@ class XMLSchema
       'cy', 'DOMNodeName', 'y', 'py', 'index', 'fixed', 'fill', 'stroke',
       'strokeWidth', 'radius', 'nodes', 'idx', 'weight', 'focus', 'text', 'textStyle']
 
-    @aggregate_hidden_attributes = ['name', 'uid']
+    @aggregate_hidden_attributes = ['name', 'uid', 'screen'] # screen from twitter
 
     # initialize attribute aggregation list
     if @config.use_global_attributes
@@ -164,13 +165,17 @@ class XMLSchema
   # 2) Create a link for each connection
   explore_network: (network) =>
     node = {}
-    @attributes = ['uid','name',
-      'sex','age','relationship','has_family',
-      'affiliations','school','major','work',
-      'city','state','country','hometown',
-      'locale','languages','political','religion'
-      'friend_count','likes_count','wall_count']
-    @separator_attributes = ['affiliations','city','locale','friend_count']
+
+    if @mode == "facebook"
+      @attributes = ['uid','name',
+        'sex','age','relationship','has_family',
+        'affiliations','school','major','work',
+        'city','state','country','hometown',
+        'locale','languages','political','religion'
+        'friend_count','likes_count','wall_count']
+      @separator_attributes = ['affiliations','city','locale','friend_count']
+    else
+      @attributes = ['screen', 'name', 'location', 'lang' ]
     # likes_count = # of pages user likes
     # wall_count = number of wall posts
     # has_family = has family relationships defined on facebook
@@ -185,6 +190,7 @@ class XMLSchema
       if @config.node_limit? and i > @config.node_limit then break
       node = {}
       name = null
+
       for attr in person.childNodes
         # look for attribute-esque children
         if attr.firstChild != null and
@@ -229,6 +235,11 @@ class XMLSchema
           when "relationship_status" #rename to shorter 'relationship'
             node["relationship"] = attr.firstChild?.nodeValue
 
+          # twitter location truncated to first chunk before comma
+          when "location"
+            loc = node["location"]
+            if loc? and loc.indexOf(",") > 0
+              node["location"] = loc.substring(0,loc.indexOf(","))
       copy = $.extend({}, node)
       copy.DOMNodeName = copy.name
 
@@ -238,9 +249,11 @@ class XMLSchema
 
 
     for connection in connections
-      uid1 = connection.querySelector('uid1').firstChild.nodeValue
-      uid2 = connection.querySelector('uid2').firstChild.nodeValue
-      @connections.push([uid1, uid2])
+
+      uid1 = connection.querySelector('uid1')?.firstChild.nodeValue
+      uid2 = connection.querySelector('uid2')?.firstChild.nodeValue
+      if uid1? and uid2?
+        @connections.push([uid1, uid2])
 
 
   reset: () =>
@@ -1125,8 +1138,24 @@ root = exports ? this
 $ ->
   chart = null
 
+  mode = "twitter"
+  #mode = "facebook"
+  init = (mode) ->
+    if mode == "facebook"
+      data_file = "data/FB_Peter_combined.xml"
+    else if mode =="twitter"
+      data_file = "data/TWITTER.xml"
+    else
+      data_file = "data/test_data.xml"
+    console.log "Using data from "+data_file
+
+    d3.xml data_file, render_vis
+
   render_vis = (xml) ->
-    chart = new XMLSchema xml
+    if not xml?
+      throw "Error reading data";
+
+    chart = new XMLSchema(xml, mode)
     #chart.start_ex()
     root.display_all()
     $("#debug_btn1").click(() => chart.display())
@@ -1149,6 +1178,6 @@ $ ->
   root.display_all = () =>
     chart.display()
 
-#  d3.xml "data/FB-RAW-3.xml", render_vis
-  d3.xml "data/FB_Peter_combined.xml", render_vis
+
+  init(mode)
 
