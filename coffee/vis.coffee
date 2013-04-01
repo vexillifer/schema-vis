@@ -116,7 +116,7 @@ class XMLSchema
       'cy', 'DOMNodeName', 'y', 'py', 'index', 'fixed', 'fill', 'stroke',
       'strokeWidth', 'radius', 'nodes', 'idx', 'weight', 'focus', 'text', 'textStyle']
 
-    @aggregate_hidden_attributes = ['name', 'uid', 'friend_count', 'likes_count', 'wall_count']
+    @aggregate_hidden_attributes = ['name', 'uid']
 
     # initialize attribute aggregation list
     if @config.use_global_attributes
@@ -761,7 +761,11 @@ class XMLSchema
       d3.select(element).select("circle").attr("stroke", "black")
 
     content = "<table>"
-    for key, value of data
+    # display attributes in alphabetical order
+    keys = _.keys(data).sort((a, b) -> a.localeCompare(b))
+
+    for key in keys
+      value = data[key]
       if @tooltip_hidden_properties.indexOf(key) == -1 and value != ""
         content += "<tr><td><span class=\"name\">#{key}</span></td>" +
           "<td><span class=\"value\"> #{value}</span></td></tr>"
@@ -833,10 +837,20 @@ class XMLSchema
     $('#meta_detail').html(data.name)
     $('#meta_schema').show()
 
-    for key, value of data
-      if @table_hidden_properties.indexOf(key) == -1 and not (key in @aggregate_hidden_attributes)
-        content += "<tr><td><span class=\"name\">#{key}</span></td>" +
+    contentRow = (attr, value) ->
+      return "<tr><td><span class=\"name\">#{attr}</span></td>" +
           "<td><span class=\"pinnable\"> #{value}</span></td></tr>"
+
+    # augment data with num links
+    if data.num_links == undefined
+      data.num_links = this.get_link_count(data)
+
+    # display attributes in alphabetical order
+    keys = _.keys(data).sort((a, b) -> a.localeCompare(b))
+
+    for key in keys
+      if @table_hidden_properties.indexOf(key) == -1
+        content += contentRow(key, data[key])
 
         if not @config.use_global_attributes
           $('#aggr_menu').append("<li><a tabindex=\"-1\">#{key}</a></li>");
@@ -865,6 +879,21 @@ class XMLSchema
       this.set_display_mode(@display_modes.raw, null, false) # do not redraw
 
     this.display(data)
+
+  get_links: (node) =>
+    node_links = []
+    for link in @links
+      if link.target.name == node.name || link.source.name == node.name
+        node_links.push(link)
+
+    return node_links
+
+  get_link_count: (node) =>
+    count = 0
+    for link in @links
+      if link.target.name == node.name || link.source.name == node.name
+        count++
+    return count
 
   update_view_detail: (data) =>
     console.log("updating view detail!", data);
@@ -905,11 +934,7 @@ class XMLSchema
     if not has_clusters
       # approximate centrality
       for node in nodes
-
-        rank = 0
-        for link in @links
-          if link.target.name == node.name || link.source.name == node.name
-            rank++
+        rank = this.get_link_count(node)
         central_figures.push([node, rank])
 
       central_figures.sort((a, b) => return b[1] - a[1])
