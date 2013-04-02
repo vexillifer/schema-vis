@@ -1153,7 +1153,7 @@ $ ->
 
   init = (mode) ->
     if mode == "facebook"
-      data_file = "data/FB_Peter_combined.xml"
+      data_file = "data/FB_combined.xml"
     else if mode =="twitter"
       data_file = "data/TWITTER.xml"
     else
