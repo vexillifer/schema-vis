@@ -827,6 +827,11 @@ class XMLSchema
     else
       this.select_node(data, i, element)
 
+  xml_str:(node) =>
+    d = document.createElement('div')
+    d.appendChild(node)
+    return d.innerHTML
+
   # Make the selected node 'focused'
   # Apply style and show meta data
   select_node: (data, i, element) =>
@@ -845,6 +850,29 @@ class XMLSchema
     if data.cluster
       this.select_cluster(data)
       return
+
+    # Update XML in schema view
+    xml = $(@data).find('name:contains("'+data.name+'")').get(0)
+    console.log(xml.parentNode)
+    window.jaja = xml.parentNode
+    str  = '<?xml version="1.0" encoding="utf-8" ?>\n'
+    str += '<network>\n'
+    str += '  ...\n'
+    str += '\t' + @xml_str(xml.parentNode)
+    str += '\n  ...\n'
+
+    xml = $(@data).find('uid1:contains("'+data.name+'"),uid2:contains("'+data.name+'")')
+    for uid in xml
+      str += '\t\t' + @xml_str(uid.parentNode) + '\n'
+
+    str += '\n ...\n'
+    str += '\n</network>'
+
+    hljs.tabReplace = '  '
+    
+    $('#schema_modal_code').html(
+      '<code>' + hljs.highlight("xml", str).value + '</code>'
+    )
 
     # Emphasize selected node
     element.ownerSVGElement.appendChild(element) # move element to top
