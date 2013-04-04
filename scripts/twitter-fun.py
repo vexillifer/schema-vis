@@ -20,6 +20,8 @@ api = twitter.Api(       consumer_key='jB7yF8qSUUX1XQQrnecQ',
                   access_token_secret='p7zBA0saOngXD0GPyRhnDBHIlZNYdJDsGmKHYywu4')
 
 # In memory data (we'll output XML later)
+count = 0
+count_max = 50
 people = {}
 connections = []
 
@@ -36,6 +38,11 @@ people[root.name] = root
 # Get mutual friends network for single person
 my_followers = api.GetFollowers(user=root)
 for my_follower in my_followers:
+  
+  count = count + 1
+  if count > count_max:
+    break
+
   people[my_follower.name] = my_follower
   connections.append([root.name, my_follower.name])
   # Don't crawl crazy ass accounts (@ILoveBurritos, etc.)
