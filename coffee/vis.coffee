@@ -869,7 +869,7 @@ class XMLSchema
     str += '\n</network>'
 
     hljs.tabReplace = '  '
-    
+
     $('#schema_modal_code').html(
       '<code>' + hljs.highlight("xml", str).value + '</code>'
     )
@@ -1183,7 +1183,7 @@ $ ->
     if mode == "facebook"
       data_file = "data/FB_combined.xml"
     else if mode =="twitter"
-      data_file = "data/TWITTER.xml"
+      data_file = "data/Twitter_2000.xml"
     else
       data_file = "data/test_data.xml"
     console.log "Using data from "+data_file
