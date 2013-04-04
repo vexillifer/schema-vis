@@ -49,7 +49,7 @@ class XMLSchema
     @height = window.innerHeight
     @data = data
 
-    @zoom_min = .5
+    @zoom_min = .2
     @zoom_max = 4
     @zoom_show_labels = 7/8
     @zoom_hint_labels = 3/4
