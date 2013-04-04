@@ -828,9 +828,8 @@ class XMLSchema
       this.select_node(data, i, element)
 
   xml_str:(node) =>
-    d = document.createElement('div')
-    d.appendChild(node)
-    return d.innerHTML
+    # you have to clone it otherwise it is removed from the data
+    return $("<div/>").append($(node).clone()).html();
 
   # Make the selected node 'focused'
   # Apply style and show meta data
@@ -853,8 +852,6 @@ class XMLSchema
 
     # Update XML in schema view
     xml = $(@data).find('name:contains("'+data.name+'")').get(0)
-    console.log(xml.parentNode)
-    window.jaja = xml.parentNode
     str  = '<?xml version="1.0" encoding="utf-8" ?>\n'
     str += '<network>\n'
     str += '  ...\n'
