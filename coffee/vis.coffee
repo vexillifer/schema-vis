@@ -18,7 +18,7 @@ class XMLSchema
       show_foci: false,
       text_font_size: 12
 
-      anonymize_names: false
+      anonymize_names: mode == "facebook"
 
       cluster_radius_factor: 4
       cluster_radius_offset: 5
