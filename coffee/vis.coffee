@@ -76,7 +76,7 @@ class XMLSchema
     @index  = {}
     @attributes = []
     @separator_attributes = [] # when adding these to the dropdown, insert a separator first
-
+    @name_map = {} # for anonymized names
 
     @circles = null
     @visualization = null
@@ -112,13 +112,13 @@ class XMLSchema
     @table_hidden_properties  = ['children', '_children', 'x', 'y', 'px', 'cx',
       'cy', 'DOMNodeName', 'y', 'py', 'index', 'fixed', 'fill', 'stroke',
       'strokeWidth', 'radius', 'nodes','name','cluster', 'text', 'idx', 'focus',
-      'weight', 'label', 'textStyle', 'subgraph']
+      'weight', 'label', 'textStyle', 'subgraph', 'name_raw']
 
     @tooltip_hidden_properties  = ['children', '_children', 'x', 'y', 'px', 'cx',
       'cy', 'DOMNodeName', 'y', 'py', 'index', 'fixed', 'fill', 'stroke',
-      'strokeWidth', 'radius', 'nodes', 'idx', 'weight', 'focus', 'text', 'textStyle']
+      'strokeWidth', 'radius', 'nodes', 'idx', 'weight', 'focus', 'text', 'textStyle', 'name_raw']
 
-    @aggregate_hidden_attributes = ['name', 'uid', 'screen'] # screen from twitter
+    @aggregate_hidden_attributes = ['name', 'uid', 'screen', 'name_raw'] # screen from twitter
 
     # initialize attribute aggregation list
     if @config.use_global_attributes
@@ -232,8 +232,10 @@ class XMLSchema
             node['has_family'] = true
           when "name"
             name = attr.firstChild.nodeValue
+            node['name_raw'] = name;
             if @config.anonymize_names
               node['name'] = "Person " + i
+            @name_map[name] = node['name']; # map from actual name to visible name
           when "relationship_status" #rename to shorter 'relationship'
             node["relationship"] = attr.firstChild?.nodeValue
 
@@ -837,7 +839,28 @@ class XMLSchema
 
   xml_str:(node) =>
     # you have to clone it otherwise it is removed from the data
-    return $("<div/>").append($(node).clone()).html();
+    xml=$("<div/>").append($(node).clone()).html();
+
+    anonymize = (xml, reg) =>
+      result = reg.exec(xml)
+      if result != null
+        name = result[1]
+        return xml.replace(name, @name_map[name]);
+      return xml
+
+
+    # anonymize names!
+    if @config.anonymize_names
+      # anonymize <name>xxx</name>
+      xml = anonymize(xml, /<name>(.*?)<\/name>/);
+
+      # anonymize <uid1>xxx</uid1>
+      xml = anonymize(xml, /<uid1>(.*?)<\/uid1>/);
+
+      # anonymize <uid2>xxx</uid2>
+      xml = anonymize(xml, /<uid2>(.*?)<\/uid2>/);
+
+    return xml
 
   # Make the selected node 'focused'
   # Apply style and show meta data
@@ -859,14 +882,14 @@ class XMLSchema
       return
 
     # Update XML in schema view
-    xml = $(@data).find('name:contains("'+data.name+'")').get(0)
+    xml = $(@data).find('name:contains("'+data.name_raw+'")').get(0)
     str  = '<?xml version="1.0" encoding="utf-8" ?>\n'
     str += '<network>\n'
     str += '  ...\n'
     str += '\t' + @xml_str(xml.parentNode)
     str += '\n  ...\n'
 
-    xml = $(@data).find('uid1:contains("'+data.name+'"),uid2:contains("'+data.name+'")')
+    xml = $(@data).find('uid1:contains("'+data.name_raw+'"),uid2:contains("'+data.name_raw+'")')
     for uid in xml
       str += '\t\t' + @xml_str(uid.parentNode) + '\n'
 
