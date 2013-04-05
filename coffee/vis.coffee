@@ -989,12 +989,11 @@ class XMLSchema
     for link in links
       # don't link to cluster, link to the original node
       if link.cluster_node?
-        neighbour_name = link.cluster_node.name
+        neighbour_name = link.cluster_node.name_raw
       else if link.target.name == node.name
-        neighbour_name = link.source.name
+        neighbour_name = link.source.name_raw
       else
-        neighbour_name = link.target.name
-
+        neighbour_name = link.target.name_raw
       neighbours.push(this.get_node(neighbour_name).idx)
     neighbours
 
