@@ -50,10 +50,10 @@
     <div id="prop_meta">
       <div align="center"><h3 id="meta_title"></h3><span id="meta_detail" class="muted"></span></div>
       <button class="btn" id="subgraph_btn">View Subgraph</button>
-      <div id="meta_attr" style="height:150px;overflow:scroll"></div>
+      <div id="meta_attr" style="height:280px;overflow:scroll"></div>
       <br />
       <div align="right">
-        <button class="btn" id="meta_schema" data-toggle="modal" data-target="#schema_modal">Schema...</button>
+        <button class="btn" id="meta_schema" data-toggle="modal" data-target="#schema_modal">View Data...</button>
       </div>
     </div>
     <br />
@@ -67,16 +67,16 @@
     </div>
     <div class="modal-body">
       <ul class="nav nav-tabs">
-        <li class="active"><a href="#diagram" data-toggle="tab">Diagram</a></li>
-        <li><a href="#xml" data-toggle="tab">XML</a></li>
+        <li class="active"><a href="#xml" data-toggle="tab">XML</a></li>
+        <li><a href="#diagram" data-toggle="tab">Diagram</a></li>
       </ul>
       <div class="tab-content">
-        <div class="tab-pane active" id="diagram">
+        <div class="tab-pane" id="diagram">
           <div align="center">
             <img src="img/schema-diagram.png" style="height:200px" />
           </div>
         </div>
-        <div class="tab-pane" id="xml">
+        <div class="tab-pane active" id="xml">
 
         <pre id="schema_modal_code" class="pre-scrollable"></pre>
         </div>
