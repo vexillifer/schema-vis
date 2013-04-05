@@ -23,6 +23,11 @@ a, a:visited, a:active {
   top: 40%;
 }
 
+.modal-header .close {
+  background: transparent;
+  border: 0;
+}
+
 #logo {
   position: absolute;
   left: 50px;
