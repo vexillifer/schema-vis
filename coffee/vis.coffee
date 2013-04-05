@@ -786,17 +786,23 @@ class XMLSchema
     if d3.select(element).attr("collapsed") == "false"
       d3.select(element).select("circle").attr("stroke", "black")
 
-    content = "<table>"
+    content = ""
     # display attributes in alphabetical order
     keys = _.keys(data).sort((a, b) -> a.localeCompare(b))
+
+    contentRow = (attr, value) ->
+      return "<tr><td><span class=\"name\">#{attr}</span></td>" +
+          "<td><span class=\"value\"> #{value}</span></td></tr>"
 
     for key in keys
       value = data[key]
       if @tooltip_hidden_properties.indexOf(key) == -1 and value != ""
-        content += "<tr><td><span class=\"name\">#{key}</span></td>" +
-          "<td><span class=\"value\"> #{value}</span></td></tr>"
+        if key == "name" # make sure name is at the top if it exists
+          content = contentRow(key, value) + content
+        else
+          content += contentRow(key, value)
 
-    content += "</table>"
+    content = "<table>"+ content + "</table>"
     @tooltip.showTooltip(content,d3.event)
 
   # Remove node hover tool tip
