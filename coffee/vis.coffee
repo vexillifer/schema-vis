@@ -199,6 +199,8 @@ class XMLSchema
         attr.nodeName in @attributes
           node[attr.nodeName] = attr.firstChild.nodeValue
 
+        #console.log(node['name'])
+
         # attribute special cases
         switch attr.nodeName
           when "affiliations"
@@ -868,7 +870,7 @@ class XMLSchema
     hljs.tabReplace = '  '
 
     $('#schema_modal_code').html(
-      '<code>' + hljs.highlight("xml", str).value + '</code>'
+      hljs.highlight("xml", str).value
     )
 
     # Emphasize selected node
