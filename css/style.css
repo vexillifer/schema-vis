@@ -8,12 +8,19 @@ a, a:visited, a:active {
 }
 
 .pre-scrollable {
-  height: 200px;
+  height: 500px;
   overflow: scroll;
 }
 
 #vis {
 
+}
+
+#schema_modal {
+  max-height: 900px;
+  width: 1008px;
+  left: 35%;
+  top: 40%;
 }
 
 #logo {
