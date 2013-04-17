@@ -2,7 +2,7 @@
 
 Schema Explorer visualizes XML files regardless of data or schema. This is a technical prototype and schema summarization has not yet been implemented.
 
-<img src="" />
+<img src="https://raw.github.com/vexillifer/schema-vis/master/screenshots/screen-1.png" />
 
 
 ## Try it out!  
