@@ -1,4 +1,9 @@
+# Schema Explorer
+
 Schema Explorer visualizes XML files regardless of data or schema. This is a technical prototype and schema summarization has not yet been implemented.
+
+<img src="" />
+
 
 ## Try it out!  
 1. Check out the repository  
