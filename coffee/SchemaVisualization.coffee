@@ -8,8 +8,8 @@ class SchemaVisualization
     # default vis style settings
     @mode = mode
     @config = {
-      node_fill: '#8b9dc3',
-      node_stroke: '#3b5998',
+      # node_fill: '#8b9dc3',
+      # node_stroke: '#3b5998',
       node_stroke_width: 2,
       node_radius: 5,
       node_text_style: '',
@@ -33,7 +33,7 @@ class SchemaVisualization
       # performance otions
       static_load: 0,
       expand_circles_on_entry: false,
-      node_limit: 4000,
+      node_limit: 2000,
       tick_limit: 100,
 
 
@@ -99,11 +99,7 @@ class SchemaVisualization
       # parse network and initialize attributes, nodes, and edges
       @parser = new XMLParser()
       @parser.explore_network(@data, @mode, @config.node_limit, @config.anonymize_names)
-
-      #@viz_default()
     else
-      #@explore_data @data, {}
-      #@visualize()
       console.error 'Data is not a social network.'
 
     # save the initial state
@@ -321,6 +317,8 @@ class SchemaVisualization
     for node, i in nodes
       node.fixed = false # revert pinned behavior
 
+      # Map node colour to the node type
+      node_colour = @get_colour(@parser.node_types.indexOf(node["node name"]))
       if is_node_visible node
         node.radius = @config.node_radius
         node.text = node.name
@@ -330,6 +328,8 @@ class SchemaVisualization
         node.y = circle_y(half_height, circle_const, i)
         node.px = node.x
         node.py = node.y
+        node.fill = node_colour
+        node.stroke = d3.rgb(node_colour).darker(1).toString()
 
         @nodes.push node
 
@@ -547,6 +547,7 @@ class SchemaVisualization
       .attr(   'collapsed', (d) -> d.collapsed or 'false')
       .style(    'opacity', (d) -> d.opacity or $this.config.line_stroke_opacity)
 
+
     # create svg nodes for circles/labels
     @circles = @visualization.selectAll('g.node')
       .data(@nodes)
@@ -564,13 +565,12 @@ class SchemaVisualization
     # create node circles
     @circles.append('circle')
       .attr(           'r', if @config.expand_circles_on_entry then 0 else (d) -> d.radius or $this.config.node_radius)
-      .attr(        'fill', (d,i) => d.fill or $this.config.node_fill)
+      .attr(        'fill', (d,i) => d.fill or $this.get_colour($this.parser.node_types.indexOf(d.nodeName)))
       .attr('stroke-width', (d,i) => d.strokeWidth or $this.config.node_stroke_width)
-      .attr(      'stroke', (d,i) => d.stroke or $this.config.node_stroke)
+      .attr(      'stroke', (d,i) => d.stroke or d3.rgb($this.get_colour($this.parser.node_types.indexOf(d.nodeName))).darker(1).toString())
       .attr(   'collapsed', 'false')
       .attr(           'cx', (d, i) => d.x or $this.center.x)
       .attr(           'cy', (d, i) => d.y or $this.center.y)
-
 
     # create node labels
     @circles.append('text')
@@ -716,7 +716,7 @@ class SchemaVisualization
     console.log(data, i, element);
     $circle = $(element).find("circle");
     if $circle.attr("marked")
-      $circle.removeAttr("marked").attr("fill", @config.node_fill)
+      $circle.removeAttr("marked").attr("fill", @get_colour(@parser.node_types.indexOf(data["nodeName"])))
     else
       $circle.attr("marked", true).attr("fill", "red").attr("idx", data.idx)
 
@@ -978,8 +978,9 @@ class SchemaVisualization
     if @focused_node?
       @focused_node.select("circle")
         .attr("r", @focused_node_data.radius or @config.node_radius)
-        .attr("fill", @focused_node_data.fill or @config.node_fill)
-        .attr("stroke", @focused_node_data.stroke or @config.node_stroke)
+        # .attr("fill", @focused_node_data.fill or @get_colour(@parser.node_types.indexOf(@focused_node_data["nodeName"])))
+        .attr("fill", @get_colour(@parser.node_types.indexOf(@focused_node_data["nodeName"])))
+        .attr("stroke", @focused_node_data.stroke or d3.rgb(@get_colour($this.parser.node_types.indexOf(d.nodeName))).darker(1).toString())
 
     @focused_node = null
     @focused_node_data = null
@@ -1012,76 +1013,5 @@ class SchemaVisualization
             @force.stop()
         else
           console.log d3.event.keyCode
-
-  # Recurse through children and hide those nodes from the vis
-  hide_children: (children) =>
-    unless children?
-      @focused_node.select("circle").attr("fill", "#3b5998")
-      @focused_node.select("circle").attr("stroke", "#263d6c")
-      children = @focused_node_data.children
-      # Copy flattened children to buffer
-      @focused_node_data["_children"] = children
-      @focused_node_data["children"] = []
-    for node in children
-      # Depth first, recurse through children
-      @hide_children node.children
-
-      # Remove child lines and nodes from vis
-      @circles.each( (d,i) ->
-        if i == node.DOMNodeID
-          d3.select(@).select("circle")
-            .attr("style", "display:none")
-            .attr("collapsed", "true")
-          d3.select(@).select("text")
-            .attr("style", "display:none")
-            .attr("collapsed", "true"))
-      @lines.each( (d, i) ->
-        if d.target.DOMNodeID == node.DOMNodeID
-          d3.select(@)
-            .attr("style", "display:none")
-            .attr("collapsed", "true"))
-
-  # Recurse through children and show those nodes in the vis
-  show_children: (children) =>
-    parent = false
-    unless children?
-      parent = true
-      @focused_node.select("circle").attr("fill", "#8b9dc3")
-      @focused_node.select("circle").attr("stroke", "#3b5998")
-      children = @focused_node_data._children
-      # Copy expanded children back into children slot
-      @focused_node_data["children"] = children
-      @focused_node_data["_children"] = []
-    for node in children
-      # Depth first, recurse through children
-      @show_children node.children
-
-      that = this
-      # Show child node and links to parent
-      # Apply style according to zoom and node selection
-      @circles.each( (d,i) ->
-        if i == node.DOMNodeID
-          d3.select(@).select("circle")
-            .attr("style", "")
-            .attr("collapsed", "false")
-          # Apply text opacity depending on zoom
-          text = d3.select(@).select("text")
-          text.attr("collapsed", "false")
-          if that.zoom_current_tier > @zoom_max * @zoom_show_labels
-            text.attr("style", "")
-          else if that.zoom_current_tier > @zoom_max * @zoom_hint_labels
-            text.attr("style", "opacity:.5")
-          else
-            text.attr("style", "opacity:0"))
-      @lines.each( (d, i) ->
-        if d.target.DOMNodeID == node.DOMNodeID
-          if parent
-            d3.select(@)
-              .attr("collapsed", "false")
-              .attr("style", "opacity:.7")
-          else
-            d3.select(@)
-              .attr("collapsed", "false")
-              .attr("style", "opacity:.2"))
 
 

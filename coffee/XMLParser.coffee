@@ -2,6 +2,7 @@ class XMLParser
   constructor: () ->
     # network data
     @people = []
+    @node_types = []
     @connections = []
     @index  = {}
     @attributes = []
@@ -13,37 +14,44 @@ class XMLParser
   explore_network: (network, mode, node_limit, anonymize_names) =>    
     node = {}
 
-    if mode == "facebook"
-      @attributes = ['uid','name',
-        'sex','age','relationship','has_family',
-        'affiliations','school','major','work',
-        'city','state','country','hometown',
-        'locale','languages','political','religion'
-        'friend_count','likes_count','wall_count']
-    else
-      @attributes = ['screen', 'name', 'location', 'lang' ]
-    # likes_count = # of pages user likes
-    # wall_count = number of wall posts
-    # has_family = has family relationships defined on facebook
 
-    people = network.firstChild.querySelectorAll('person')
+    get_attributes = (attr, attributes, node) ->
+      # look for attribute-esque children, add attribute to list
+      if attr.firstChild != null and
+      attr.firstChild.nodeType == 3 and
+      attr.firstChild.nodeValue.trim() != ''
+        attributes.push(attr.nodeName) if attr.nodeName not in attributes
+        node[attr.nodeName] = attr.firstChild.nodeValue
+
+        # for child in attr.querySelectorAll()
+
+      # recursively iterate through children to find all possible attributes
+      # for child in attr.childNodes
+      #   # console.log child + " " + child.firstChild.nodeType if child.firstChild?
+      #   get_attributes(child)
+
+    # Add both company and person nodes of the XML DOM
+    @node_types.push('person')
+    @node_types.push('company')
+    people = network.firstChild.querySelectorAll('company, person')
     connections = network.firstChild.querySelectorAll('connection')
 
     get_child_value = (parent, child) ->
       parent.querySelector(child)?.firstChild.nodeValue
+
 
     for person, i in people
       if node_limit? and i > node_limit then break
       node = {}
       name = null
 
+      console.log @attributes["node name"]
+      @attributes.push("node name") if @attributes["node name"]?
+      node["node name"] = person.nodeName
+
       for attr in person.childNodes
-        # look for attribute-esque children
-        if attr.firstChild != null and
-        attr.firstChild.nodeType == 3 and
-        attr.firstChild.nodeValue.trim() != '' and
-        attr.nodeName in @attributes
-          node[attr.nodeName] = attr.firstChild.nodeValue
+        get_attributes(attr, @attributes, node)
+        
 
         # attribute special cases
         switch attr.nodeName
